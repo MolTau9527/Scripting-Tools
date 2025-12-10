@@ -43,7 +43,7 @@
 
 ## 安装方法
 
-1. 在 iOS 设备上安装 [Scripting App](https://apps.apple.com/app/scripting/id1528949952)
+1. 在 iOS 设备上安装 [Scripting App](https://apps.apple.com/us/app/scripting/id6479691128)
 2. 下载对应脚本文件夹
 3. 导入到 Scripting App 中
 4. 根据需要配置脚本参数
@@ -89,5 +89,4 @@ MIT License
 
 ## 相关链接
 
-- [Scripting App 官网](https://scriptingapp.com)
-- [Scripting App 文档](https://docs.scriptingapp.com)
+- [Scripting App 文档](https://scripting.fun/doc_v2/zh/guide/doc_v2/Quick%20Start)
