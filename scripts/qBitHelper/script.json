@@ -1,0 +1,24 @@
+{
+  "name": "qBitHelper",
+  "localizedNames": {
+    "zh": "qBitHelper",
+    "en": "qBitHelper"
+  },
+  "localizedDescriptions": {
+    "zh": "远程监控 qBittorrent 状态的脚本",
+    "en": "Remote monitor for qBittorrent status"
+  },
+  "icon": "tray.full.fill",
+  "color": "rgba(28, 140, 255,1)",
+  "runInApp": false,
+  "version": "1.0.0",
+  "author": {
+    "name": "Unknown",
+    "email": null,
+    "homepage": null
+  },
+  "widget": {
+    "file": "widget.tsx",
+    "url": "scriptable:///run/qBitHelper"
+  }
+}

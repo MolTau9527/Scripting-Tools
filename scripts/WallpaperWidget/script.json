@@ -1,0 +1,18 @@
+{
+  "intentInputTypes" : [
+
+  ],
+  "contributors" : [
+
+  ],
+  "version" : "1.0.0",
+  "runInApp" : false,
+  "localizedNames" : null,
+  "color" : "rgba(238, 92, 98,1)",
+  "author" : null,
+  "name" : "WallpaperWidget",
+  "description" : null,
+  "icon" : "square.2.layers.3d.fill",
+  "remoteResource" : null,
+  "localizedDescriptions" : null
+}
