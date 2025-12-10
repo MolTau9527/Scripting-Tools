@@ -1,9 +1,9 @@
 import { Navigation, Script } from "scripting";
-import QbHelper from './utils/qbhelper';
+import Helper from './utils/public/helper';
 
 async function run() {
   await Navigation.present({
-    element: <QbHelper />,
+    element: <Helper />,
     modalPresentationStyle: "fullScreen",
   });
   Script.exit();

@@ -1,22 +1,8 @@
 import { fetch } from "scripting";
-import { QbConfigData } from '../pages/SettingsPage';
+import { ConfigData } from '../../pages/SettingsPage';
+import { ClientData } from '../public/types';
 
-export interface QbData {
-  upload: number;
-  download: number;
-  seeds: number;
-  uploadRate: number;
-  downloadRate: number;
-  version?: string;
-  downloadingSeeds: number;
-  uploadingSeeds: number;
-}
-
-export interface HistoryPoint {
-  timestamp: number;
-  uploadRate: number;
-  downloadRate: number;
-}
+export const QB_SESSION_KEY = 'qbitSession';
 
 interface QbTransferInfo {
   dl_info_speed: number;
@@ -29,16 +15,10 @@ interface QbTorrentInfo {
   state: string;
 }
 
-export const STORAGE_KEY = 'qbitConfig';
-export const SESSION_KEY = 'qbitSession';
-export const HISTORY_KEY = 'qbitHistory';
-export const MAX_HISTORY_POINTS = 10;
-export const DEFAULT_REFRESH_MINUTES = 0.5;
-
 const extractSID = (setCookie: string | null): string | null =>
   setCookie?.match(/SID=([^;]+)/)?.[1] ?? null;
 
-const loginQb = async (config: QbConfigData): Promise<string | null> => {
+const loginQb = async (config: ConfigData): Promise<string | null> => {
   try {
     const response = await fetch(`${config.url}/api/v2/auth/login`, {
       method: 'POST',
@@ -52,26 +32,26 @@ const loginQb = async (config: QbConfigData): Promise<string | null> => {
   }
 };
 
-const getOrRefreshSession = async (config: QbConfigData): Promise<string | null> => {
-  let sid = Storage.get<string>(SESSION_KEY);
+const getOrRefreshSession = async (config: ConfigData): Promise<string | null> => {
+  let sid = Storage.get<string>(QB_SESSION_KEY);
   if (!sid) {
     sid = await loginQb(config);
-    if (sid) Storage.set(SESSION_KEY, sid);
+    if (sid) Storage.set(QB_SESSION_KEY, sid);
   }
   return sid;
 };
 
-const fetchWithAuth = async (config: QbConfigData, url: string) => {
+const fetchWithAuth = async (config: ConfigData, url: string) => {
   let sid = await getOrRefreshSession(config);
   if (!sid) throw new Error('登录失败');
 
   let response = await fetch(url, { headers: { 'Cookie': `SID=${sid}` } });
 
   if (response.status === 403) {
-    Storage.remove(SESSION_KEY);
+    Storage.remove(QB_SESSION_KEY);
     sid = await loginQb(config);
     if (!sid) throw new Error('重新登录失败');
-    Storage.set(SESSION_KEY, sid);
+    Storage.set(QB_SESSION_KEY, sid);
     response = await fetch(url, { headers: { 'Cookie': `SID=${sid}` } });
     if (!response.ok) throw new Error('获取数据失败');
   }
@@ -82,13 +62,12 @@ const fetchWithAuth = async (config: QbConfigData, url: string) => {
 const isDownloading = (state: string) => state.includes('downloading') || state === 'stalledDL';
 const isUploading = (state: string) => state.includes('uploading') || state === 'stalledUP' || state.includes('seeding');
 
-export const fetchQbData = async (config: QbConfigData): Promise<QbData | null> => {
+export const fetchQbData = async (config: ConfigData): Promise<ClientData | null> => {
   try {
-    const baseUrl = config.url;
     const [transferRes, torrentsRes, versionRes] = await Promise.all([
-      fetchWithAuth(config, `${baseUrl}/api/v2/transfer/info`),
-      fetchWithAuth(config, `${baseUrl}/api/v2/torrents/info`),
-      fetchWithAuth(config, `${baseUrl}/api/v2/app/version`),
+      fetchWithAuth(config, `${config.url}/api/v2/transfer/info`),
+      fetchWithAuth(config, `${config.url}/api/v2/torrents/info`),
+      fetchWithAuth(config, `${config.url}/api/v2/app/version`),
     ]);
 
     const [transfer, torrents, version]: [QbTransferInfo, QbTorrentInfo[], string] = await Promise.all([
@@ -110,4 +89,8 @@ export const fetchQbData = async (config: QbConfigData): Promise<QbData | null> 
   } catch {
     return null;
   }
+};
+
+export const clearQbSession = () => {
+  Storage.remove(QB_SESSION_KEY);
 };

@@ -5,13 +5,13 @@
     "en": "qBitHelper"
   },
   "localizedDescriptions": {
-    "zh": "远程监控 qBittorrent 状态的脚本",
-    "en": "Remote monitor for qBittorrent status"
+    "zh": "远程监控 qBittorrent/Transmission 状态的脚本",
+    "en": "Remote monitor for qBittorrent/Transmission status "
   },
   "icon": "tray.full.fill",
   "color": "rgba(28, 140, 255,1)",
   "runInApp": false,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": {
     "name": "Unknown",
     "email": null,

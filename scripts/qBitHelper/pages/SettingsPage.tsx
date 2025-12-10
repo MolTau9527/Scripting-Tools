@@ -1,15 +1,18 @@
 import { useObservable, VStack, HStack, Text, TextField, SecureField, Button, useEffect, Picker, useState, List, Section, Widget, Image } from "scripting";
 
-export interface QbConfigData {
+export type ClientType = 'qb' | 'tr';
+
+export interface ConfigData {
   url: string;
   username: string;
   password: string;
   refreshMinutes?: number;
+  clientType?: ClientType;
 }
 
 interface SettingsPageProps {
-  onConfigSaved: (config: QbConfigData) => void;
-  initialConfig?: QbConfigData;
+  onConfigSaved: (config: ConfigData) => void;
+  initialConfig?: ConfigData;
   onBack?: () => void;
 }
 
@@ -33,15 +36,18 @@ function SettingField({ icon, color, prompt, value, onChanged }: {
 }
 
 export function SettingsPage({ onConfigSaved, initialConfig, onBack }: SettingsPageProps) {
+  const [clientType, setClientType] = useState<ClientType>(initialConfig?.clientType || 'qb');
   const url = useObservable(initialConfig?.url || '');
   const username = useObservable(initialConfig?.username || '');
   const password = useObservable(initialConfig?.password || '');
   const [refreshMinutes, setRefreshMinutes] = useState(initialConfig?.refreshMinutes ?? DEFAULT_REFRESH);
   const [showPassword, setShowPassword] = useState(false);
+  const [showUrl, setShowUrl] = useState(false);
   const errorMsg = useObservable('');
 
   useEffect(() => {
     if (!initialConfig) return;
+    setClientType(initialConfig.clientType || 'qb');
     url.setValue(initialConfig.url || '');
     username.setValue(initialConfig.username || '');
     password.setValue(initialConfig.password || '');
@@ -66,7 +72,8 @@ export function SettingsPage({ onConfigSaved, initialConfig, onBack }: SettingsP
       url: url.value.trim(),
       username: username.value.trim(),
       password: password.value,
-      refreshMinutes
+      refreshMinutes,
+      clientType
     });
     await Widget.reloadUserWidgets();
   };
@@ -88,8 +95,28 @@ export function SettingsPage({ onConfigSaved, initialConfig, onBack }: SettingsP
         </Section>
       ) : null}
 
-      <Section header={<Text>服务器连接</Text>} footer={<Text>请输入 qBittorrent WebUI 的完整地址，包含端口号</Text>}>
-        <SettingField icon="server.rack" color="systemBlue" prompt="http://192.168.1.1:8080" value={url.value} onChanged={v => url.setValue(v)} />
+      <Section header={<Text>客户端类型</Text>} footer={<Text>选择您使用的 BT 客户端</Text>}>
+        <HStack spacing={12} alignment="center">
+          <Image systemName="app.connected.to.app.below.fill" foregroundStyle="systemBlue" font={18} />
+          <Picker title="客户端" pickerStyle="segmented" value={clientType} onChanged={(v: string) => setClientType(v as ClientType)} frame={{ maxWidth: "infinity" }}>
+            <Text tag="qb">qBittorrent</Text>
+            <Text tag="tr">Transmission</Text>
+          </Picker>
+        </HStack>
+      </Section>
+
+      <Section header={<Text>服务器连接</Text>} footer={<Text>请输入 {clientType === 'qb' ? 'qBittorrent WebUI' : 'Transmission WebUI'} 的完整地址，包含端口号</Text>}>
+        <HStack spacing={12} alignment="center">
+          <Image systemName="server.rack" foregroundStyle="systemBlue" font={18} />
+          {showUrl ? (
+            <TextField title="" prompt="http://192.168.1.1:8080" value={url.value} onChanged={v => url.setValue(v)} frame={{ maxWidth: "infinity" }} />
+          ) : (
+            <SecureField title="" prompt="http://192.168.1.1:8080" value={url.value} onChanged={v => url.setValue(v)} />
+          )}
+          <Button action={() => setShowUrl(!showUrl)}>
+            <Image systemName={showUrl ? "eye.slash" : "eye"} foregroundStyle="systemGray" font={18} />
+          </Button>
+        </HStack>
       </Section>
 
       <Section header={<Text>账户信息</Text>}>

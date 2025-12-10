@@ -1,10 +1,11 @@
 import { VStack, HStack, Text, Chart, LineChart, Spacer } from "scripting";
-import { QbData, HistoryPoint } from './qbApi';
+import { ClientData, HistoryPoint } from './types';
 
-interface QbDisplayProps {
-  data: QbData;
+interface DisplayProps {
+  data: ClientData;
   history?: HistoryPoint[];
   showChart?: boolean;
+  clientType?: 'qb' | 'tr';
 }
 
 const SIZES = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -19,7 +20,7 @@ const formatRate = (bps: number) => `${formatBytes(bps)}/s`;
 
 const formatTime = (ts: number) => {
   const d = new Date(ts);
-  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
 };
 
 const toChartMarks = (history: HistoryPoint[], key: 'uploadRate' | 'downloadRate') =>
@@ -38,7 +39,7 @@ function StatItem({ label, value, color, large }: { label: string; value: string
   );
 }
 
-function RateChart({ history, data }: { history: HistoryPoint[]; data: QbData }) {
+function RateChart({ history, data }: { history: HistoryPoint[]; data: ClientData }) {
   return (
     <VStack spacing={6} frame={{ maxWidth: "infinity" }}>
       <HStack frame={{ maxWidth: "infinity" }}>
@@ -56,11 +57,19 @@ function RateChart({ history, data }: { history: HistoryPoint[]; data: QbData })
         </VStack>
       </HStack>
       <VStack spacing={8}>
-        <Text font={11} opacity={0.7}>下载速率</Text>
+        <HStack frame={{ maxWidth: "infinity" }}>
+          <Text font={11} opacity={0.7}>下载速率</Text>
+          <Spacer />
+          <Text font={9} opacity={0.5}>数据点: {history.length}</Text>
+        </HStack>
         <Chart frame={{ maxHeight: 80 }}>
           <LineChart marks={toChartMarks(history, 'downloadRate')} foregroundStyle="red" />
         </Chart>
-        <Text font={11} opacity={0.7}>上传速率</Text>
+        <HStack frame={{ maxWidth: "infinity" }}>
+          <Text font={11} opacity={0.7}>上传速率</Text>
+          <Spacer />
+          <Text font={9} opacity={0.5}>最后更新: {formatTime(Date.now())}</Text>
+        </HStack>
         <Chart frame={{ maxHeight: 80 }}>
           <LineChart marks={toChartMarks(history, 'uploadRate')} foregroundStyle="green" />
         </Chart>
@@ -73,13 +82,21 @@ function RateChart({ history, data }: { history: HistoryPoint[]; data: QbData })
   );
 }
 
-export function QbDisplay({ data, history = [], showChart = true }: QbDisplayProps) {
+const getClientName = (clientType?: 'qb' | 'tr', large?: boolean) => {
+  if (clientType === 'tr') {
+    return large ? 'Transmission' : 'TR';
+  }
+  return large ? 'qBittorrent' : 'qBit';
+};
+
+export function Display({ data, history = [], showChart = true, clientType = 'qb' }: DisplayProps) {
   const version = formatVersion(data.version);
+  const clientName = getClientName(clientType, showChart);
 
   return (
     <VStack spacing={showChart ? 12 : 8} frame={{ maxWidth: "infinity" }}>
       <HStack alignment="center" spacing={8}>
-        <Text font={showChart ? "title2" : "headline"}>{showChart ? "qBittorrent" : "qBit"}</Text>
+        <Text font={showChart ? "title2" : "headline"}>{clientName}</Text>
         {version ? <Text font={showChart ? 12 : 9} opacity={0.6}>{version}</Text> : null}
       </HStack>
 
@@ -100,3 +117,6 @@ export function QbDisplay({ data, history = [], showChart = true }: QbDisplayPro
     </VStack>
   );
 }
+
+// 保持向后兼容的别名
+export { Display as QbDisplay };

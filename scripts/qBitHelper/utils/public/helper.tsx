@@ -1,11 +1,13 @@
 import { useObservable, useEffect, VStack, HStack, Text, Button, NavigationStack, ScrollView, Navigation, Widget, Image } from "scripting";
-import { SettingsPage, QbConfigData } from '../pages/SettingsPage';
-import { QbDisplay } from './QbDisplay';
-import { fetchQbData, QbData, HistoryPoint, STORAGE_KEY, SESSION_KEY, HISTORY_KEY, MAX_HISTORY_POINTS } from './qbApi';
+import { SettingsPage, ConfigData } from '../../pages/SettingsPage';
+import { Display } from './display';
+import { ClientData, HistoryPoint } from './types';
+import { STORAGE_KEY, HISTORY_KEY, updateHistory } from './storage';
+import { fetchData, clearSession } from '../api';
 
-type SystemColor = "systemBlue" | "systemGreen" | "systemGray" | "systemOrange" | "systemRed" | "systemPurple";
+type SystemColor = "systemBlue" | "systemGreen" | "systemGray" | "systemOrange";
 
-const isValidConfig = (cfg: QbConfigData | null): cfg is QbConfigData =>
+const isValidConfig = (cfg: ConfigData | null): cfg is ConfigData =>
   !!(cfg?.url && cfg?.username && cfg?.password);
 
 function PreviewCard({ title, subtitle, children }: { title: string; subtitle: string; children: JSX.Element }) {
@@ -66,54 +68,64 @@ function LoadingView() {
   );
 }
 
-export default function QbHelper() {
+export default function Helper() {
   const dismiss = Navigation.useDismiss();
-  const data = useObservable<QbData | null>(null);
-  const config = useObservable<QbConfigData | null>(null);
+  const data = useObservable<ClientData | null>(null);
+  const config = useObservable<ConfigData | null>(null);
   const error = useObservable("");
   const isLoading = useObservable(false);
   const showSettings = useObservable(false);
   const history = useObservable<HistoryPoint[]>([]);
 
   useEffect(() => {
-    const savedConfig = Storage.get<QbConfigData>(STORAGE_KEY);
+    const savedConfig = Storage.get<ConfigData>(STORAGE_KEY);
     const savedHistory = Storage.get<HistoryPoint[]>(HISTORY_KEY);
     if (isValidConfig(savedConfig)) config.setValue(savedConfig);
     if (savedHistory) history.setValue(savedHistory);
   }, []);
 
-  const fetchData = async () => {
+  const loadData = async () => {
     if (!config.value) return;
     isLoading.setValue(true);
     error.setValue("");
 
-    const newData = await fetchQbData(config.value);
+    const newData = await fetchData(config.value);
     isLoading.setValue(false);
 
     if (newData) {
       data.setValue(newData);
-      const newHistory = [...history.value, {
-        timestamp: Date.now(),
-        uploadRate: newData.uploadRate,
-        downloadRate: newData.downloadRate
-      }].slice(-MAX_HISTORY_POINTS);
-      history.setValue(newHistory);
-      Storage.set(HISTORY_KEY, newHistory);
+      history.setValue(updateHistory(newData));
     } else {
       error.setValue("获取数据失败，请检查配置");
     }
   };
 
   useEffect(() => {
-    if (config.value) fetchData();
+    if (!config.value) return;
+
+    loadData();
+
+    const refreshMinutes = config.value.refreshMinutes ?? 1;
+    if (refreshMinutes <= 0) return;
+
+    let timeoutId: any;
+    const scheduleNext = () => {
+      timeoutId = setTimeout(async () => {
+        await loadData();
+        scheduleNext();
+      }, refreshMinutes * 60 * 1000);
+    };
+
+    scheduleNext();
+    return () => clearTimeout(timeoutId);
   }, [config.value]);
 
-  const handleConfigSaved = (newConfig: QbConfigData) => {
+  const handleConfigSaved = (newConfig: ConfigData) => {
     if (!isValidConfig(newConfig)) {
       error.setValue("请填写完整的配置信息");
       return;
     }
-    Storage.remove(SESSION_KEY);
+    clearSession(newConfig.clientType);
     Storage.set(STORAGE_KEY, newConfig);
     config.setValue(newConfig);
     showSettings.setValue(false);
@@ -133,10 +145,12 @@ export default function QbHelper() {
     );
   }
 
+  const clientType = config.value?.clientType || 'qb';
+
   return (
     <NavigationStack>
       <ScrollView
-        navigationTitle="qBittorrent"
+        navigationTitle={clientType === 'tr' ? 'Transmission' : 'qBittorrent'}
         toolbar={{ topBarLeading: <Button title="" systemImage="xmark" action={dismiss} /> }}
       >
         <VStack spacing={24} padding={16}>
@@ -149,15 +163,15 @@ export default function QbHelper() {
               {data.value ? (
                 <VStack spacing={24}>
                   <HStack spacing={12} frame={{ maxWidth: "infinity" }}>
-                    <ActionButton icon="arrow.clockwise" title="刷新" color="systemBlue" action={fetchData} />
+                    <ActionButton icon="arrow.clockwise" title="刷新" color="systemBlue" action={loadData} />
                     <ActionButton icon="widget.small" title="刷新组件" color="systemGreen" action={() => Widget.reloadAll()} />
                     <ActionButton icon="gear" title="设置" color="systemGray" action={openSettings} />
                   </HStack>
                   <PreviewCard title="大组件预览" subtitle="适用于 4x4 大尺寸小组件">
-                    <QbDisplay data={data.value} history={history.value} showChart={true} />
+                    <Display data={data.value} history={history.value} showChart={true} clientType={clientType} />
                   </PreviewCard>
                   <PreviewCard title="中/小组件预览" subtitle="适用于 2x2 或 2x4 小组件">
-                    <QbDisplay data={data.value} history={history.value} showChart={false} />
+                    <Display data={data.value} history={history.value} showChart={false} clientType={clientType} />
                   </PreviewCard>
                 </VStack>
               ) : null}
@@ -168,3 +182,6 @@ export default function QbHelper() {
     </NavigationStack>
   );
 }
+
+// 保持向后兼容的别名
+export { Helper as QbHelper };
