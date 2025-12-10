@@ -1,5 +1,5 @@
 import { Navigation, Script } from "scripting";
-import QbHelper from './util/qbhelper';
+import QbHelper from './utils/qbhelper';
 
 async function run() {
   await Navigation.present({

@@ -1,6 +1,6 @@
 import { Navigation, Script, useObservable } from "scripting";
-import { PreviewHome } from "./util/PreviewHome";
-import { SettingsPage } from "./util/SettingsPage";
+import { PreviewHome } from "./utils/PreviewHome";
+import { SettingsPage } from "./utils/SettingsPage";
 
 function App() {
   const currentPage = useObservable<"home" | "settings">("home");

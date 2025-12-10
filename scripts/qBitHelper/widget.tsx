@@ -1,5 +1,5 @@
 import { VStack, Text, Widget } from "scripting";
-import { QbDisplay } from './util/QbDisplay';
+import { QbDisplay } from './utils/QbDisplay';
 import { QbConfigData } from './pages/SettingsPage';
 import { fetchQbData, HistoryPoint, STORAGE_KEY, HISTORY_KEY, MAX_HISTORY_POINTS, DEFAULT_REFRESH_MINUTES } from './utils/qbApi';
 

@@ -1,8 +1,8 @@
 import { Image, ZStack, Text, VStack, Widget } from "scripting";
-import { fetchACGImage } from "./util/api";
-import { loadConfig } from "./util/storage";
-import { DEFAULT_REFRESH_SECONDS, MIN_REFRESH_INTERVAL } from "./util/utils";
-import { ACGConfig } from "./util/types";
+import { fetchACGImage } from "./utils/api";
+import { loadConfig } from "./utils/storage";
+import { DEFAULT_REFRESH_SECONDS, MIN_REFRESH_INTERVAL } from "./utils/utils";
+import { ACGConfig } from "./utils/types";
 
 async function main() {
   const config = loadConfig();
