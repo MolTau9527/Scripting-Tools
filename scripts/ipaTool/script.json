@@ -1,0 +1,46 @@
+{
+  "localizedDescriptions" : {
+    "ru" : "Этот скрипт主要用于 скачивания IPA-пакетов и понижения версии приложений; для его запуска требуется дополнительная поддержка в виде модуля Surge или плагина Loon — достаточно выбрать один из них.",
+    "it" : "Questo script è principalmente utilizzato per scaricare pacchetti IPA e eseguire il downgrade delle app; per eseguirlo è necessario un supporto aggiuntivo come un modulo di Surge o un plugin di Loon, di cui basta sceglierne uno.",
+    "ja" : "このスクリプトは主にIPAパッケージのダウンロードとアプリのバージョンダウンに使用されます。実行にはSurgeのモジュールまたはLoonのプラグインのいずれかを補助ツールとして必要とします。",
+    "de" : "Dieses Skript dient hauptsächlich dem Herunterladen von IPA-Paketen und dem Downgraden von Apps. Für die Ausführung ist eine zusätzliche Unterstützung erforderlich, wie ein Modul von Surge oder ein Plugin von Loon — es genügt, eines davon auszuwählen.",
+    "zh" : "这个脚本主要用于下载IPA包和应用降级，运行这个脚本还需要依赖如Surge的模块或Loon的插件作为辅助支持，两者任选其一即可。",
+    "fr" : "Ce script est principalement utilisé pour télécharger des fichiers IPA et effectuer une régression d'application ; pour l'exécuter, vous avez besoin d'un support complémentaire, comme un module de Surge ou un plugin de Loon — il suffit d'en choisir un seul.",
+    "en" : "This script is primarily used to download IPA packages and downgrade apps; to run it, you need auxiliary support such as a Surge module or a Loon plugin — either one is sufficient.",
+    "pt" : "Este script é principalmente usado para baixar pacotes IPA e realizar downgrade de aplicativos; para executá-lo, é necessário suporte adicional, como um módulo do Surge ou um plugin do Loon — basta escolher um dos dois.",
+    "es" : "Este script se utiliza principalmente para descargar paquetes IPA y realizar el downgrade de aplicaciones; para ejecutarlo se requiere soporte adicional, como un módulo de Surge o un complemento de Loon, basta con elegir uno de los dos."
+  },
+  "color" : "rgba(28, 140, 255,1)",
+  "icon" : "tray.full.fill",
+  "intentInputTypes" : [
+
+  ],
+  "name" : "ipaTool",
+  "remoteResource" : {
+    "url" : "https:\/\/raw.githubusercontent.com\/githubdulong\/Script\/master\/ipaTool.scripting",
+    "hash" : "3cf5d47ae2e815bf455156fdf98fcb77",
+    "autoUpdateInterval" : 600
+  },
+  "runInApp" : false,
+  "author" : {
+    "name" : "小白脸",
+    "email" : null,
+    "homepage" : null
+  },
+  "localizedNames" : {
+    "de" : "IPA-Tool",
+    "fr" : "Outil IPA",
+    "it" : "Strumento IPA",
+    "zh" : "应用安装",
+    "ja" : "IPAツール",
+    "ru" : "Инструмент IPA",
+    "en" : "IPATool",
+    "pt" : "Ferramenta IPA",
+    "es" : "Herramienta IPA"
+  },
+  "description" : "This script is primarily used to download IPA packages and downgrade apps; to run it, you need auxiliary support such as a Surge module or a Loon plugin — either one is sufficient.",
+  "contributors" : [
+
+  ],
+  "version" : "1.0.1"
+}
