@@ -1,72 +1,62 @@
-import { useObservable, useEffect, VStack, HStack, Text, Button, NavigationStack, ScrollView, Navigation, Widget, Image } from "scripting";
+import { useObservable, useEffect, VStack, HStack, Text, List, Section, NavigationStack, Navigation, Widget, Image, Spacer, TapGesture, Color } from "scripting";
 import { SettingsPage, ConfigData } from '../../pages/SettingsPage';
 import { Display } from './display';
 import { ClientData, HistoryPoint } from './types';
 import { STORAGE_KEY, HISTORY_KEY, updateHistory } from './storage';
 import { fetchData, clearSession } from '../api';
 
-type SystemColor = "systemBlue" | "systemGreen" | "systemGray" | "systemOrange";
-
 const isValidConfig = (cfg: ConfigData | null): cfg is ConfigData =>
   !!(cfg?.url && cfg?.username && cfg?.password);
 
-function PreviewCard({ title, subtitle, children }: { title: string; subtitle: string; children: JSX.Element }) {
-  return (
-    <VStack spacing={8} frame={{ maxWidth: "infinity" }}>
-      <VStack spacing={2} alignment="leading" padding={{ leading: 4 }}>
-        <Text font="headline">{title}</Text>
-        <Text font="caption" opacity={0.6}>{subtitle}</Text>
-      </VStack>
-      <VStack padding={16} frame={{ maxWidth: "infinity" }}>
-        {children}
-      </VStack>
-    </VStack>
-  );
-}
+const RowIcon = ({ name, color }: { name: string; color: Color }) => (
+  <HStack frame={{ width: 32, height: 32 }} background={color} clipShape={{ type: 'rect', cornerRadius: 7 }}>
+    <Image systemName={name} foregroundStyle="white" font={16} />
+  </HStack>
+);
 
-function ActionButton({ icon, title, color, action }: { icon: string; title: string; color: SystemColor; action: () => void }) {
-  return (
-    <Button action={action}>
-      <VStack spacing={6} alignment="center" frame={{ maxWidth: "infinity" }}>
-        <Image systemName={icon} foregroundStyle={color} font="title2" />
-        <Text font="caption">{title}</Text>
-      </VStack>
-    </Button>
-  );
-}
+const SwitchButtons = ({ clientType }: { clientType: 'qb' | 'tr' }) => (
+  <HStack spacing={16}>
+    {(['qb', 'tr'] as const).map(t => (
+      <Image key={t} systemName={`${t === 'qb' ? 'q' : 't'}.circle.fill`} font={16}
+        foregroundStyle={t === clientType ? "accentColor" : "secondaryLabel"} />
+    ))}
+  </HStack>
+);
 
-function WelcomeView({ onConfigure }: { onConfigure: () => void }) {
-  return (
-    <VStack spacing={20} alignment="center" padding={32}>
-      <Image systemName="server.rack" foregroundStyle="systemBlue" font="largeTitle" />
-      <VStack spacing={8} alignment="center">
-        <Text font="title2">欢迎使用 qBitHelper</Text>
-        <Text font="subheadline" opacity={0.6}>请先配置您的 qBittorrent 服务器信息</Text>
-      </VStack>
-      <Button title="开始配置" systemImage="gear" action={onConfigure} />
-    </VStack>
-  );
-}
-
-function ErrorBanner({ message }: { message: string }) {
-  return (
-    <HStack spacing={12} padding={16}>
-      <Image systemName="exclamationmark.triangle.fill" foregroundStyle="systemOrange" font="title3" />
-      <VStack spacing={4} alignment="leading" frame={{ maxWidth: "infinity" }}>
-        <Text font="headline">连接失败</Text>
-        <Text font="subheadline" opacity={0.7}>{message}</Text>
-      </VStack>
+const ActionRow = ({ icon, color, title, onTap }: { icon: string; color: Color; title: string; onTap: () => void }) => (
+  <VStack alignment="leading" gesture={{ gesture: TapGesture().onEnded(onTap), mask: 'gesture' }}>
+    <HStack padding={{ vertical: 14 }}>
+      <RowIcon name={icon} color={color} />
+      <Text padding={{ leading: 12 }} font={17}>{title}</Text>
+      <Spacer />
+      <Image systemName="chevron.right" foregroundStyle="tertiaryLabel" font={14} fontWeight="semibold" />
     </HStack>
-  );
-}
+  </VStack>
+);
 
-function LoadingView() {
-  return (
-    <VStack spacing={16} alignment="center" padding={32}>
-      <Text font="title3" opacity={0.7}>正在加载数据...</Text>
-    </VStack>
-  );
-}
+const PreviewSection = ({ title, footer, data, history, size, clientType }: {
+  title: string; footer: string; data: ClientData; history?: HistoryPoint[];
+  size: 'small' | 'medium' | 'large'; clientType: 'qb' | 'tr';
+}) => (
+  <Section header={<Text>{title}</Text>} footer={<Text>{footer}</Text>}>
+    {size === 'small' ? (
+      <HStack>
+        <VStack padding={16} frame={{ width: 155, height: 155 }} background="systemBackground" clipShape={{ type: 'rect', cornerRadius: 20 }}>
+          <Display data={data} size={size} clientType={clientType} />
+          <Spacer />
+          <SwitchButtons clientType={clientType} />
+        </VStack>
+        <Spacer />
+      </HStack>
+    ) : (
+      <VStack padding={16}>
+        <Display data={data} history={history} size={size} clientType={clientType} />
+        <Spacer />
+        <SwitchButtons clientType={clientType} />
+      </VStack>
+    )}
+  </Section>
+);
 
 export default function Helper() {
   const dismiss = Navigation.useDismiss();
@@ -88,10 +78,8 @@ export default function Helper() {
     if (!config.value) return;
     isLoading.setValue(true);
     error.setValue("");
-
     const newData = await fetchData(config.value);
     isLoading.setValue(false);
-
     if (newData) {
       data.setValue(newData);
       history.setValue(updateHistory(newData));
@@ -102,45 +90,29 @@ export default function Helper() {
 
   useEffect(() => {
     if (!config.value) return;
-
     loadData();
-
     const refreshMinutes = config.value.refreshMinutes ?? 1;
     if (refreshMinutes <= 0) return;
-
     let timeoutId: any;
     const scheduleNext = () => {
-      timeoutId = setTimeout(async () => {
-        await loadData();
-        scheduleNext();
-      }, refreshMinutes * 60 * 1000);
+      timeoutId = setTimeout(async () => { await loadData(); scheduleNext(); }, refreshMinutes * 60 * 1000);
     };
-
     scheduleNext();
     return () => clearTimeout(timeoutId);
   }, [config.value]);
 
   const handleConfigSaved = (newConfig: ConfigData) => {
-    if (!isValidConfig(newConfig)) {
-      error.setValue("请填写完整的配置信息");
-      return;
-    }
+    if (!isValidConfig(newConfig)) { error.setValue("请填写完整的配置信息"); return; }
     clearSession(newConfig.clientType);
     Storage.set(STORAGE_KEY, newConfig);
     config.setValue(newConfig);
     showSettings.setValue(false);
   };
 
-  const openSettings = () => showSettings.setValue(true);
-
   if (showSettings.value) {
     return (
       <NavigationStack>
-        <SettingsPage
-          onConfigSaved={handleConfigSaved}
-          initialConfig={config.value || undefined}
-          onBack={() => showSettings.setValue(false)}
-        />
+        <SettingsPage onConfigSaved={handleConfigSaved} initialConfig={config.value || undefined} onBack={() => showSettings.setValue(false)} />
       </NavigationStack>
     );
   }
@@ -149,39 +121,58 @@ export default function Helper() {
 
   return (
     <NavigationStack>
-      <ScrollView
-        navigationTitle={clientType === 'tr' ? 'Transmission' : 'qBittorrent'}
-        toolbar={{ topBarLeading: <Button title="" systemImage="xmark" action={dismiss} /> }}
-      >
-        <VStack spacing={24} padding={16}>
-          {!config.value ? (
-            <WelcomeView onConfigure={openSettings} />
-          ) : (
-            <VStack spacing={24}>
-              {error.value ? <ErrorBanner message={error.value} /> : null}
-              {isLoading.value && !data.value ? <LoadingView /> : null}
-              {data.value ? (
-                <VStack spacing={24}>
-                  <HStack spacing={12} frame={{ maxWidth: "infinity" }}>
-                    <ActionButton icon="arrow.clockwise" title="刷新" color="systemBlue" action={loadData} />
-                    <ActionButton icon="widget.small" title="刷新组件" color="systemGreen" action={() => Widget.reloadAll()} />
-                    <ActionButton icon="gear" title="设置" color="systemGray" action={openSettings} />
-                  </HStack>
-                  <PreviewCard title="大组件预览" subtitle="适用于 4x4 大尺寸小组件">
-                    <Display data={data.value} history={history.value} showChart={true} clientType={clientType} />
-                  </PreviewCard>
-                  <PreviewCard title="中/小组件预览" subtitle="适用于 2x2 或 2x4 小组件">
-                    <Display data={data.value} history={history.value} showChart={false} clientType={clientType} />
-                  </PreviewCard>
-                </VStack>
-              ) : null}
+      <List listStyle="insetGroup" navigationTitle="qBitHelper" navigationBarTitleDisplayMode="large"
+        toolbar={{ topBarTrailing: <Image systemName="xmark" gesture={{ gesture: TapGesture().onEnded(dismiss), mask: 'gesture' }} /> }}>
+
+        <Section>
+          <Text font={13} foregroundStyle="secondaryLabel">远程监控 qBittorrent/Transmission 状态的脚本</Text>
+        </Section>
+
+        {!config.value ? (
+          <Section>
+            <VStack spacing={20} alignment="center" padding={{ vertical: 32 }}>
+              <Image systemName="server.rack" foregroundStyle="systemBlue" font="largeTitle" />
+              <VStack spacing={8} alignment="center">
+                <Text font="title2">欢迎使用 qBitHelper</Text>
+                <Text font="subheadline" opacity={0.6}>请先配置您的服务器信息</Text>
+              </VStack>
             </VStack>
-          )}
-        </VStack>
-      </ScrollView>
+          </Section>
+        ) : null}
+
+        {error.value ? (
+          <Section>
+            <HStack spacing={12} padding={{ vertical: 12 }}>
+              <RowIcon name="exclamationmark.triangle.fill" color="#FF9500" />
+              <VStack spacing={4} alignment="leading" frame={{ maxWidth: "infinity" }}>
+                <Text font="headline">连接失败</Text>
+                <Text font="subheadline" opacity={0.7}>{error.value}</Text>
+              </VStack>
+            </HStack>
+          </Section>
+        ) : null}
+
+        {isLoading.value && !data.value ? (
+          <Section>
+            <HStack padding={{ vertical: 20 }}><Spacer /><Text font="subheadline" opacity={0.7}>正在加载数据...</Text><Spacer /></HStack>
+          </Section>
+        ) : null}
+
+        <Section header={<Text>操作</Text>}>
+          <ActionRow icon="widget.small" color="#34C759" title="刷新组件" onTap={() => Widget.reloadAll()} />
+          <ActionRow icon="gear" color="#8E8E93" title="设置" onTap={() => showSettings.setValue(true)} />
+        </Section>
+
+        {data.value ? (
+          <>
+            <PreviewSection title="大组件预览" footer="适用于 4x4 大尺寸小组件" data={data.value} history={history.value} size="large" clientType={clientType} />
+            <PreviewSection title="中组件预览" footer="适用于 2x4 中尺寸小组件" data={data.value} size="medium" clientType={clientType} />
+            <PreviewSection title="小组件预览" footer="适用于 2x2 小尺寸小组件" data={data.value} size="small" clientType={clientType} />
+          </>
+        ) : null}
+      </List>
     </NavigationStack>
   );
 }
 
-// 保持向后兼容的别名
 export { Helper as QbHelper };
