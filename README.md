@@ -25,6 +25,9 @@
 - 历史数据图表展示
 - 种子数量统计
 - 同时支持 qBittorrent 和 Transmission
+- 支持小组件三种尺寸（小/中/大）
+- App Intent 快速切换客户端
+- 每个客户端独立保存配置
 
 ---
 
@@ -56,6 +59,21 @@
 
 ---
 
+### 4. 智慧交通 - 城市交通状况监控
+
+实时查看城市交通状况的桌面小组件，让你出行前了解路况。
+
+**主要功能：**
+- 实时显示城市交通拥堵指数
+- 拥堵等级可视化（畅通/缓行/拥堵/严重拥堵）
+- 拥堵道路排行榜展示
+- 早晚高峰拥堵预测
+- 支持全国多城市切换
+
+**数据来源：** 百度交通指数
+
+---
+
 ## 安装方法
 
 1. 在 iOS 设备上安装 [Scripting App](https://apps.apple.com/us/app/scripting/id6479691128)
@@ -78,11 +96,20 @@ scripts/
 │   ├── script.json           # 脚本配置
 │   ├── index.tsx             # 主入口
 │   ├── widget.tsx            # 小组件实现
+│   ├── app_intents.tsx       # App Intent 客户端切换
 │   ├── utils/                # 工具模块
 │   │   ├── qb/               # qBittorrent API
 │   │   ├── tr/               # Transmission API
 │   │   └── public/           # 公共组件
 │   └── pages/                # 页面组件
+│
+├── 智慧交通/                  # 城市交通状况监控
+│   ├── script.json           # 脚本配置
+│   ├── index.tsx             # 主入口
+│   ├── widget.tsx            # 小组件实现
+│   └── pages/                # 页面组件
+│       ├── settings.tsx      # 设置页
+│       └── city_picker.tsx   # 城市选择器
 │
 └── ipaTool/                  # IPA 下载工具（魔改自小白脸）
     ├── script.json           # 脚本配置

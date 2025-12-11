@@ -1,4 +1,4 @@
-import { useObservable, VStack, HStack, Text, TextField, SecureField, Button, useEffect, Picker, useState, List, Section, Widget, Image } from "scripting";
+import { useObservable, VStack, HStack, Text, TextField, SecureField, Button, useEffect, Picker, useState, List, Section, Widget, Image, Spacer, TapGesture, Color } from "scripting";
 
 export type ClientType = 'qb' | 'tr';
 
@@ -20,6 +20,7 @@ interface SettingsPageProps {
   onConfigSaved: (config: ConfigData) => void;
   initialConfig?: ConfigData;
   onBack?: () => void;
+  onReset?: () => void;
 }
 
 const DEFAULT_REFRESH = 0.5;
@@ -53,7 +54,7 @@ const SecureSettingField = ({ icon, color, prompt, value, onChanged, show, onTog
   </HStack>
 );
 
-export function SettingsPage({ onConfigSaved, initialConfig, onBack }: SettingsPageProps) {
+export function SettingsPage({ onConfigSaved, initialConfig, onBack, onReset }: SettingsPageProps) {
   const [clientType, setClientType] = useState<ClientType>(initialConfig?.clientType || 'qb');
   const url = useObservable('');
   const username = useObservable('');
@@ -150,6 +151,23 @@ export function SettingsPage({ onConfigSaved, initialConfig, onBack }: SettingsP
           </Picker>
         </HStack>
       </Section>
+
+      {onReset ? (
+        <Section header={<Text>危险操作</Text>} footer={<Text>清空所有服务器配置信息，此操作不可撤销</Text>}>
+          <HStack
+            padding={{ vertical: 14 }}
+            frame={{ maxWidth: Infinity }}
+            contentShape="rect"
+            gesture={{ gesture: TapGesture().onEnded(onReset), mask: 'gesture' }}
+          >
+            <HStack frame={{ width: 32, height: 32 }} background={"#FF3B30" as Color} clipShape={{ type: 'rect', cornerRadius: 7 }}>
+              <Image systemName="arrow.counterclockwise" foregroundStyle="white" font={16} />
+            </HStack>
+            <Text padding={{ leading: 12 }} font={17} foregroundStyle="#FF3B30">重新配置</Text>
+            <Spacer />
+          </HStack>
+        </Section>
+      ) : null}
     </List>
   );
 }

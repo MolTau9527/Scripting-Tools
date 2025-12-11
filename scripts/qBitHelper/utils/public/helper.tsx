@@ -23,15 +23,21 @@ const SwitchButtons = ({ clientType }: { clientType: 'qb' | 'tr' }) => (
   </HStack>
 );
 
-const ActionRow = ({ icon, color, title, onTap }: { icon: string; color: Color; title: string; onTap: () => void }) => (
-  <VStack alignment="leading" gesture={{ gesture: TapGesture().onEnded(onTap), mask: 'gesture' }}>
-    <HStack padding={{ vertical: 14 }}>
-      <RowIcon name={icon} color={color} />
-      <Text padding={{ leading: 12 }} font={17}>{title}</Text>
-      <Spacer />
-      <Image systemName="chevron.right" foregroundStyle="tertiaryLabel" font={14} fontWeight="semibold" />
-    </HStack>
-  </VStack>
+const ActionRow = ({ icon, color, title, onTap, showArrow = true, trailing }: {
+  icon: string; color: Color; title: string; onTap: () => void; showArrow?: boolean; trailing?: any
+}) => (
+  <HStack
+    padding={{ vertical: 14 }}
+    frame={{ maxWidth: Infinity }}
+    contentShape="rect"
+    gesture={{ gesture: TapGesture().onEnded(onTap), mask: 'gesture' }}
+  >
+    <RowIcon name={icon} color={color} />
+    <Text padding={{ leading: 12 }} font={17}>{title}</Text>
+    <Spacer />
+    {trailing}
+    {showArrow && <Image systemName="chevron.right" foregroundStyle="tertiaryLabel" font={14} fontWeight="semibold" />}
+  </HStack>
 );
 
 const PreviewSection = ({ title, footer, data, history, size, clientType }: {
@@ -66,6 +72,27 @@ export default function Helper() {
   const isLoading = useObservable(false);
   const showSettings = useObservable(false);
   const history = useObservable<HistoryPoint[]>([]);
+  const refreshStatus = useObservable<'idle' | 'success' | 'failed'>('idle');
+
+  const handleReset = async () => {
+    const selectedIndex = await Dialog.actionSheet({
+      title: "重新配置",
+      message: "确定要清空所有服务器配置信息吗？此操作不可撤销。",
+      actions: [{ label: "确认", destructive: true }]
+    });
+    if (selectedIndex === 0) {
+      Storage.remove(STORAGE_KEY);
+      Storage.remove(HISTORY_KEY);
+      Storage.remove('qbClientConfig');
+      Storage.remove('trClientConfig');
+      clearSession('qb');
+      clearSession('tr');
+      config.setValue(null);
+      data.setValue(null);
+      history.setValue([]);
+      error.setValue("");
+    }
+  };
 
   useEffect(() => {
     const savedConfig = Storage.get<ConfigData>(STORAGE_KEY);
@@ -112,7 +139,12 @@ export default function Helper() {
   if (showSettings.value) {
     return (
       <NavigationStack>
-        <SettingsPage onConfigSaved={handleConfigSaved} initialConfig={config.value || undefined} onBack={() => showSettings.setValue(false)} />
+        <SettingsPage
+          onConfigSaved={handleConfigSaved}
+          initialConfig={config.value || undefined}
+          onBack={() => showSettings.setValue(false)}
+          onReset={handleReset}
+        />
       </NavigationStack>
     );
   }
@@ -121,8 +153,12 @@ export default function Helper() {
 
   return (
     <NavigationStack>
-      <List listStyle="insetGroup" navigationTitle="qBitHelper" navigationBarTitleDisplayMode="large"
-        toolbar={{ topBarTrailing: <Image systemName="xmark" gesture={{ gesture: TapGesture().onEnded(dismiss), mask: 'gesture' }} /> }}>
+      <List
+        listStyle="insetGroup"
+        navigationTitle="qBitHelper"
+        navigationBarTitleDisplayMode="large"
+        toolbar={{ topBarTrailing: <Image systemName="xmark" gesture={{ gesture: TapGesture().onEnded(dismiss), mask: 'gesture' }} /> }}
+      >
 
         <Section>
           <Text font={13} foregroundStyle="secondaryLabel">远程监控 qBittorrent/Transmission 状态的脚本</Text>
@@ -159,7 +195,28 @@ export default function Helper() {
         ) : null}
 
         <Section header={<Text>操作</Text>}>
-          <ActionRow icon="widget.small" color="#34C759" title="刷新组件" onTap={() => Widget.reloadAll()} />
+          <ActionRow
+            icon="widget.small"
+            color="#34C759"
+            title="刷新组件"
+            showArrow={false}
+            trailing={
+              refreshStatus.value !== 'idle' ? (
+                <Text font={15} foregroundStyle={refreshStatus.value === 'success' ? '#34C759' : '#FF3B30'}>
+                  {refreshStatus.value === 'success' ? '已刷新' : '刷新失败'}
+                </Text>
+              ) : null
+            }
+            onTap={async () => {
+              try {
+                await Widget.reloadAll();
+                refreshStatus.setValue('success');
+              } catch {
+                refreshStatus.setValue('failed');
+              }
+              setTimeout(() => refreshStatus.setValue('idle'), 3000);
+            }}
+          />
           <ActionRow icon="gear" color="#8E8E93" title="设置" onTap={() => showSettings.setValue(true)} />
         </Section>
 

@@ -1,0 +1,26 @@
+{
+  "contributors" : [
+
+  ],
+  "icon" : "car.fill",
+  "localizedDescriptions" : {
+
+  },
+  "color" : "rgba(28, 140, 255,1)",
+  "author" : {
+    "email" : "2933177144@qq.com",
+    "name" : "MolTau9527",
+    "homepage" : "https:\/\/github.com\/MolTau9527"
+  },
+  "description" : "实时查看城市交通状况的桌面组件。显示交通拥堵指数（畅通\/缓行\/拥堵\/严重拥堵）和拥堵道路排行，支持全国多城市切换。数据来源：百度交通指数。",
+  "version" : "1.0.0",
+  "remoteResource" : null,
+  "localizedNames" : {
+
+  },
+  "intentInputTypes" : [
+
+  ],
+  "runInApp" : false,
+  "name" : "智慧交通"
+}

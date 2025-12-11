@@ -1,18 +1,23 @@
 {
-  "intentInputTypes" : [
-
-  ],
   "contributors" : [
 
   ],
-  "version" : "1.0.0",
   "runInApp" : false,
-  "localizedNames" : null,
-  "color" : "rgba(238, 92, 98,1)",
-  "author" : null,
-  "name" : "WallpaperWidget",
-  "description" : null,
-  "icon" : "square.2.layers.3d.fill",
   "remoteResource" : null,
-  "localizedDescriptions" : null
+  "localizedNames" : {
+
+  },
+  "color" : "rgba(238, 92, 98,1)",
+  "intentInputTypes" : [
+
+  ],
+  "name" : "WallpaperWidget",
+  "description" : "ACG 二次元壁纸小组件。支持随机或指定 ID 获取图片，可设置自动刷新间隔（1分钟至1小时）。数据来源：ACG 图库。",
+  "icon" : "photo.fill",
+  "author" : {
+    "homepage" : "https:\/\/github.com\/MolTau9527",
+    "name" : "MolTau9527",
+    "email" : "2933177144@qq.com"
+  },
+  "version" : "1.0.1"
 }
