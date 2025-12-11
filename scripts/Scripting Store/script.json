@@ -1,0 +1,26 @@
+{
+  "name" : "Scripting Store",
+  "localizedDescriptions" : {
+
+  },
+  "color" : "rgba(28, 140, 255,1)",
+  "author" : {
+    "email" : "2933177144@qq.com",
+    "name" : "MolTau9527",
+    "homepage" : "https:\/\/github.com\/MolTau9527"
+  },
+  "remoteResource" : null,
+  "icon" : "wrench.and.screwdriver",
+  "intentInputTypes" : [
+
+  ],
+  "runInApp" : false,
+  "localizedNames" : {
+
+  },
+  "contributors" : [
+
+  ],
+  "description" : "本站非 Scripting 官方平台。所有组件均收集自互联网，版权归原作者所有。如有侵权，请TG联系 @RoayCallingBot 删除。\n仅做适配App，免访问网站，感谢原作者开发",
+  "version" : "1.0.0"
+}
