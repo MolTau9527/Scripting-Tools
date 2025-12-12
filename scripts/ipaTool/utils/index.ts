@@ -8,3 +8,5 @@ export * from "./loginHistoryStorage";
 export * from "./fileCleanup";
 export * from "./notification";
 export * from "./navigation";
+export * from "./deepProxy";
+export * from "./plist";

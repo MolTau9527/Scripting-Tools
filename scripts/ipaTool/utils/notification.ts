@@ -57,8 +57,6 @@ export async function sendNotification(
     return Notification.schedule({ title: typeOrTitle, body });
   }
 
-  console.log(typeOrTitle);
-
   switch (typeOrTitle) {
     case "downloadSuccess":
       return (

@@ -1,4 +1,4 @@
-import { NavigationStack, ZStack } from "scripting";
+import { NavigationStack } from "scripting";
 import DownloadTaskItem from "../../components/DownloadTaskItem";
 import { useDownload, useDownloadCount } from "../../hooks";
 import AppListView from "../../components/AppListView";
@@ -17,7 +17,6 @@ const handleCancel = (id: number) => {
   const task = downloadManager.findTaskById(id);
 
   return () => {
-    console.log(task?.status);
     task?.status === "downloading" && task.cancel();
   };
 };

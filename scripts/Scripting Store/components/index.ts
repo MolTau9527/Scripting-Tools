@@ -1,7 +1,4 @@
-/**
- * 组件导出
- */
-
+export { AuthorProfile } from './AuthorProfile'
 export { MyProfile } from './MyProfile'
 export { PluginCard } from './PluginCard'
 export { PluginDetail } from './PluginDetail'

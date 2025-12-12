@@ -24,12 +24,22 @@ export const server = new HttpServer();
 server.registerFilesFromDirectory("/:file", root);
 
 /**
- * 启动服务器
- * 端口：8000
+ * 启动服务器（自动尝试可用端口）
  */
-const error = server.start({ port: 8000 });
-error && sendNotification("serverNotification", error);
-console.log(error ? `服务器启动失败: ${error}` : "服务器启动成功", server.port);
+const startServer = () => {
+  for (let port = 8000; port <= 8010; port++) {
+    const error = server.start({ port });
+    if (!error) {
+      console.log("服务器启动成功", server.port);
+      return;
+    }
+    if (port === 8010) {
+      sendNotification("serverNotification", error);
+      console.log(`服务器启动失败: ${error}`);
+    }
+  }
+};
+startServer();
 
 /**
  * 测试 API 连接

@@ -11,18 +11,18 @@ interface IpaMediaInfo {
   [id: string]: IpaMediaInfoValue;
 }
 
-export const get = (id: string) => {
-  return Storage.get<IpaMediaInfo>(AppConfig.storageKeys.ipaMediaInfo)?.[id];
+export const get = (id: string | number) => {
+  return Storage.get<IpaMediaInfo>(AppConfig.storageKeys.ipaMediaInfo)?.[String(id)];
 };
 
-export const set = (id: number, info: IpaMediaInfoValue) => {
+export const set = (id: string | number, info: IpaMediaInfoValue) => {
   const ipaMediaInfo =
     Storage.get<IpaMediaInfo>(AppConfig.storageKeys.ipaMediaInfo) ?? {};
-  ipaMediaInfo[id] = info;
+  ipaMediaInfo[String(id)] = info;
   Storage.set<IpaMediaInfo>(AppConfig.storageKeys.ipaMediaInfo, ipaMediaInfo);
 };
 
-export const del = (id: Number) => {
+export const del = (id: string | number) => {
   const ipaMediaInfo = Storage.get<IpaMediaInfo>(
     AppConfig.storageKeys.ipaMediaInfo
   );

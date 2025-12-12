@@ -24,7 +24,6 @@ export const apiSearchApp = debounce(
       { signal: controller.signal }
     )
     const { results } = await response.json()
-    console.log("results", results)
     return results.map(
       ({
         trackId,

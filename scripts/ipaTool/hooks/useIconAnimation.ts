@@ -37,7 +37,3 @@ export const useIconAnimation = (
 
   return animation;
 };
-
-export default useIconAnimation;
-
-

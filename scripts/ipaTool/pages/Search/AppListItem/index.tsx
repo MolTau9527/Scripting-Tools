@@ -18,7 +18,6 @@ export interface Props {
 
 export default function AppListItem({ app, selected, setSelected }: Props) {
   const { removeTask } = useDownload(app.id);
-  console.log(app.icon)
   return (
     <HStack
       spacing={Spacing.md}

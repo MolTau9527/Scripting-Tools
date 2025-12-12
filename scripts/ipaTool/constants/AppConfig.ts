@@ -42,28 +42,28 @@ export const defaultConfig = Object.freeze({
   }),
 });
 
-// 从存储加载配置，并与默认配置合并（确保新增配置项生效）
-const storedConfig = Storage.get(DOWNLOAD_CONFIG_STORAGE_KEY);
-const defaultConfigCopy = JSON.parse(JSON.stringify(defaultConfig));
-
-let config: typeof defaultConfigCopy;
-if (!storedConfig) {
-  config = defaultConfigCopy;
-} else {
-  // 合并配置：默认值 + 存储值（存储值优先）
-  config = Object.keys(defaultConfigCopy).reduce((acc, key) => {
-    acc[key] = storedConfig[key] !== undefined
-      ? { ...defaultConfigCopy[key], ...storedConfig[key] }
-      : defaultConfigCopy[key];
-    return acc;
-  }, {} as typeof defaultConfigCopy);
-}
-Storage.set(DOWNLOAD_CONFIG_STORAGE_KEY, config);
-
 // ============ 类型定义 ============
 export type AppConfigType = DeepMutable<typeof defaultConfig>;
 export type ConfigKey = keyof AppConfigType;
 export type ConfigValue<K extends ConfigKey> = AppConfigType[K];
+
+// 从存储加载配置，并与默认配置合并（确保新增配置项生效）
+const storedConfig = Storage.get<AppConfigType>(DOWNLOAD_CONFIG_STORAGE_KEY);
+const defaultConfigCopy: AppConfigType = JSON.parse(JSON.stringify(defaultConfig));
+
+let config: AppConfigType;
+if (!storedConfig) {
+  config = defaultConfigCopy;
+} else {
+  // 合并配置：默认值 + 存储值（存储值优先）
+  config = { ...defaultConfigCopy };
+  for (const key of Object.keys(defaultConfigCopy) as ConfigKey[]) {
+    if (storedConfig[key] !== undefined) {
+      (config as any)[key] = { ...defaultConfigCopy[key], ...storedConfig[key] };
+    }
+  }
+}
+Storage.set(DOWNLOAD_CONFIG_STORAGE_KEY, config);
 
 /**
  * 全局应用配置对象（响应式）
