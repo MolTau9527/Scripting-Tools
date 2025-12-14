@@ -14,3 +14,19 @@ export interface HistoryPoint {
   uploadRate: number;
   downloadRate: number;
 }
+
+export type ClientType = 'qb' | 'tr';
+
+export interface ClientConfig {
+  url: string;
+  username: string;
+  password: string;
+  alias?: string;
+  visible?: boolean;
+}
+
+export interface MultiClientConfig {
+  qb: (ClientConfig | null)[];
+  tr: (ClientConfig | null)[];
+  activeClient?: { type: ClientType; index: number };
+}

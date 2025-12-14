@@ -1,26 +1,23 @@
 import { AppIntentManager, AppIntentProtocol, Widget } from "scripting"
 import { STORAGE_KEY } from './utils/public/storage'
 import { ConfigData } from './pages/SettingsPage'
-
-const QB_CONFIG_KEY = 'qbClientConfig';
-const TR_CONFIG_KEY = 'trClientConfig';
+import { ClientType } from './utils/public/types'
 
 export const SwitchClientIntent = AppIntentManager.register({
   name: "SwitchClientIntent",
   protocol: AppIntentProtocol.AppIntent,
-  perform: async (clientType: 'qb' | 'tr') => {
-    const key = clientType === 'qb' ? QB_CONFIG_KEY : TR_CONFIG_KEY;
-    const clientConfig = Storage.get<{ url: string; username: string; password: string }>(key);
-    
-    if (clientConfig) {
-      const currentConfig = Storage.get<ConfigData>(STORAGE_KEY);
-      Storage.set<ConfigData>(STORAGE_KEY, {
-        ...clientConfig,
-        refreshMinutes: currentConfig?.refreshMinutes ?? 0.5,
-        clientType
-      });
-    }
-    
+  perform: async (intent: { clientType: ClientType; clientIndex: number }) => {
+    const { clientType, clientIndex } = intent;
+    const currentConfig = Storage.get<ConfigData>(STORAGE_KEY);
+    Storage.set<ConfigData>(STORAGE_KEY, {
+      ...currentConfig,
+      url: currentConfig?.url || '',
+      username: currentConfig?.username || '',
+      password: currentConfig?.password || '',
+      refreshMinutes: currentConfig?.refreshMinutes ?? 0.5,
+      clientType,
+      clientIndex
+    });
     Widget.reloadAll();
   }
 })

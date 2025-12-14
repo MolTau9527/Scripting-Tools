@@ -1,6 +1,5 @@
-import { useObservable, VStack, HStack, Text, TextField, SecureField, Button, useEffect, Picker, useState, List, Section, Widget, Image, Spacer, TapGesture, Color } from "scripting";
-
-export type ClientType = 'qb' | 'tr';
+import { useObservable, VStack, HStack, Text, TextField, SecureField, Button, useEffect, Picker, useState, List, Section, Widget, Image, Spacer, TapGesture, Color, Toggle } from "scripting";
+import { ClientType, ClientConfig, MultiClientConfig } from '../utils/public/types';
 
 export interface ConfigData {
   url: string;
@@ -8,12 +7,7 @@ export interface ConfigData {
   password: string;
   refreshMinutes?: number;
   clientType?: ClientType;
-}
-
-interface ClientConfig {
-  url: string;
-  username: string;
-  password: string;
+  clientIndex?: number;
 }
 
 interface SettingsPageProps {
@@ -24,10 +18,28 @@ interface SettingsPageProps {
 }
 
 const DEFAULT_REFRESH = 0.5;
-const QB_CONFIG_KEY = 'qbClientConfig';
-const TR_CONFIG_KEY = 'trClientConfig';
+const MULTI_CLIENT_KEY = 'multiClientConfig';
+const CLIENT_COUNT = 3;
 
-type SystemColor = "systemBlue" | "systemGreen" | "systemOrange" | "systemPurple" | "systemGray";
+type SystemColor = "systemBlue" | "systemGreen" | "systemOrange" | "systemPurple" | "systemGray" | "systemRed";
+
+const getDefaultMultiConfig = (): MultiClientConfig => ({
+  qb: Array(CLIENT_COUNT).fill(null),
+  tr: Array(CLIENT_COUNT).fill(null),
+  activeClient: { type: 'qb', index: 0 }
+});
+
+const loadMultiConfig = (): MultiClientConfig => {
+  const saved = Storage.get<MultiClientConfig>(MULTI_CLIENT_KEY);
+  if (!saved) return getDefaultMultiConfig();
+  return {
+    qb: saved.qb?.length === CLIENT_COUNT ? saved.qb : Array(CLIENT_COUNT).fill(null).map((_, i) => saved.qb?.[i] || null),
+    tr: saved.tr?.length === CLIENT_COUNT ? saved.tr : Array(CLIENT_COUNT).fill(null).map((_, i) => saved.tr?.[i] || null),
+    activeClient: saved.activeClient || { type: 'qb', index: 0 }
+  };
+};
+
+const saveMultiConfig = (config: MultiClientConfig) => Storage.set(MULTI_CLIENT_KEY, config);
 
 const SettingField = ({ icon, color, prompt, value, onChanged }: {
   icon: string; color: SystemColor; prompt: string; value: string; onChanged: (v: string) => void;
@@ -54,92 +66,222 @@ const SecureSettingField = ({ icon, color, prompt, value, onChanged, show, onTog
   </HStack>
 );
 
-export function SettingsPage({ onConfigSaved, initialConfig, onBack, onReset }: SettingsPageProps) {
-  const [clientType, setClientType] = useState<ClientType>(initialConfig?.clientType || 'qb');
-  const url = useObservable('');
-  const username = useObservable('');
-  const password = useObservable('');
-  const [refreshMinutes, setRefreshMinutes] = useState(initialConfig?.refreshMinutes ?? DEFAULT_REFRESH);
+function ClientItem({ config, onUpdate, onReset }: {
+  config: ClientConfig | null; onUpdate: (config: ClientConfig) => void; onReset: () => void;
+}) {
+  const [alias, setAlias] = useState(config?.alias || '');
+  const [url, setUrl] = useState(config?.url || '');
+  const [username, setUsername] = useState(config?.username || '');
+  const [password, setPassword] = useState(config?.password || '');
+  const [visible, setVisible] = useState(config?.visible ?? false);
   const [showPassword, setShowPassword] = useState(false);
   const [showUrl, setShowUrl] = useState(false);
-  const errorMsg = useObservable('');
-
-  const getConfigKey = (type: ClientType) => type === 'qb' ? QB_CONFIG_KEY : TR_CONFIG_KEY;
-
-  const loadClientConfig = (type: ClientType) => {
-    const saved = Storage.get<ClientConfig>(getConfigKey(type));
-    url.setValue(saved?.url || '');
-    username.setValue(saved?.username || '');
-    password.setValue(saved?.password || '');
-  };
-
-  const saveClientConfig = (type: ClientType) => {
-    Storage.set<ClientConfig>(getConfigKey(type), { url: url.value, username: username.value, password: password.value });
-  };
+  const isInitiallyConfigured = !!(config?.url && config?.username && config?.password);
+  const [saved, setSaved] = useState(isInitiallyConfigured);
 
   useEffect(() => {
-    if (initialConfig) {
-      const key = getConfigKey(initialConfig.clientType || 'qb');
-      if (!Storage.get<ClientConfig>(key)) {
-        Storage.set<ClientConfig>(key, { url: initialConfig.url || '', username: initialConfig.username || '', password: initialConfig.password || '' });
+    setAlias(config?.alias || '');
+    setUrl(config?.url || '');
+    setUsername(config?.username || '');
+    setPassword(config?.password || '');
+    setVisible(config?.visible ?? false);
+    setSaved(!!(config?.url && config?.username && config?.password));
+  }, [config]);
+
+  const isConfigured = !!(url && username && password);
+
+  const handleSave = () => {
+    onUpdate({ url, username, password, alias, visible });
+    setSaved(true);
+  };
+
+  return (
+    <VStack spacing={10} padding={{ vertical: 8 }}>
+      <HStack spacing={8} alignment="center">
+        <Image systemName="eye" foregroundStyle="systemBlue" font={14} />
+        <Text font={14}>在小组件中显示</Text>
+        <Spacer />
+        <Button buttonStyle="plain" action={() => { const v = !visible; setVisible(v); onUpdate({ url, username, password, alias, visible: v }); }}>
+          <HStack frame={{ width: 44, height: 26 }} background={visible ? "systemGreen" : "systemFill" as Color} clipShape={{ type: 'rect', cornerRadius: 13 }} padding={2}>
+            {visible ? <Spacer /> : null}
+            <VStack frame={{ width: 22, height: 22 }} background="white" clipShape={{ type: 'rect', cornerRadius: 11 }} shadow={{ color: "#00000026" as Color, radius: 1, y: 1 }} />
+            {visible ? null : <Spacer />}
+          </HStack>
+        </Button>
+      </HStack>
+
+      <SettingField icon="tag" color="systemPurple" prompt="别名（可选）" value={alias} onChanged={setAlias} />
+      <SecureSettingField icon="server.rack" color="systemBlue" prompt="http://192.168.1.1:8080" value={url} onChanged={setUrl} show={showUrl} onToggle={() => setShowUrl(!showUrl)} />
+      <SettingField icon="person.fill" color="systemGreen" prompt="用户名" value={username} onChanged={setUsername} />
+      <SecureSettingField icon="lock.fill" color="systemOrange" prompt="密码" value={password} onChanged={setPassword} show={showPassword} onToggle={() => setShowPassword(!showPassword)} />
+
+      <HStack spacing={8} alignment="center">
+        {saved ? (
+          <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background="systemGreen" clipShape={{ type: 'rect', cornerRadius: 6 }}>
+            <Image systemName="checkmark" foregroundStyle="white" font={12} />
+            <Text font={13} foregroundStyle="white" fontWeight="medium">已保存</Text>
+          </HStack>
+        ) : !isConfigured ? (
+          <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background={"#FF3B30" as Color} clipShape={{ type: 'rect', cornerRadius: 6 }}>
+            <Image systemName="xmark" foregroundStyle="white" font={12} />
+            <Text font={13} foregroundStyle="white" fontWeight="medium">未配置</Text>
+          </HStack>
+        ) : (
+          <Button buttonStyle="plain" action={handleSave}>
+            <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background="systemBlue" clipShape={{ type: 'rect', cornerRadius: 6 }}>
+              <Image systemName="checkmark" foregroundStyle="white" font={12} />
+              <Text font={13} foregroundStyle="white" fontWeight="medium">保存</Text>
+            </HStack>
+          </Button>
+        )}
+        <Button buttonStyle="plain" action={onReset}>
+          <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background="systemGray" clipShape={{ type: 'rect', cornerRadius: 6 }}>
+            <Image systemName="arrow.counterclockwise" foregroundStyle="white" font={12} />
+            <Text font={13} foregroundStyle="white" fontWeight="medium">重置</Text>
+          </HStack>
+        </Button>
+      </HStack>
+    </VStack>
+  );
+}
+
+const CLIENT_ICON_URLS = {
+  qb: 'https://avatars.githubusercontent.com/u/2131270',
+  tr: 'https://avatars.githubusercontent.com/u/223312'
+};
+
+const getIconPath = (type: ClientType) => `${FileManager.documentsDirectory}/qbit_${type}_icon.png`;
+
+const ensureIcons = async () => {
+  for (const type of ['qb', 'tr'] as ClientType[]) {
+    const path = getIconPath(type);
+    if (!FileManager.existsSync(path)) {
+      try {
+        const img = await UIImage.fromURL(CLIENT_ICON_URLS[type]);
+        if (img) {
+          const data = Data.fromPNG(img);
+          if (data) FileManager.writeAsDataSync(path, data);
+        }
+      } catch (e) {
+        console.log(`Failed to download icon for ${type}:`, e);
       }
     }
-    loadClientConfig(clientType);
-  }, []);
+  }
+};
 
-  const handleClientTypeChange = (newType: string) => {
-    saveClientConfig(clientType);
-    const type = newType as ClientType;
-    setClientType(type);
-    loadClientConfig(type);
+const ClientIcon = ({ type, size = 16 }: { type: ClientType; size?: number }) => {
+  const path = getIconPath(type);
+  if (FileManager.existsSync(path)) {
+    return <Image filePath={path} frame={{ width: size, height: size }} clipShape={{ type: 'rect', cornerRadius: size * 0.2 }} resizable />;
+  }
+  return <Image systemName={type === 'qb' ? 'q.circle.fill' : 't.circle.fill'} frame={{ width: size, height: size }} foregroundStyle="systemBlue" />;
+};
+
+export function SettingsPage({ onConfigSaved, initialConfig, onBack, onReset }: SettingsPageProps) {
+  const [multiConfig, setMultiConfig] = useState<MultiClientConfig>(loadMultiConfig);
+  const [currentType, setCurrentType] = useState<ClientType>('qb');
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [refreshMinutes, setRefreshMinutes] = useState(initialConfig?.refreshMinutes ?? DEFAULT_REFRESH);
+
+  useEffect(() => { ensureIcons(); }, []);
+
+  const handleUpdateClient = (type: ClientType, index: number, config: ClientConfig) => {
+    const newConfig = { ...multiConfig };
+    newConfig[type][index] = config;
+    setMultiConfig(newConfig);
+    saveMultiConfig(newConfig);
+    Widget.reloadUserWidgets();
+  };
+
+  const handleResetClient = (type: ClientType, index: number) => {
+    const newConfig = { ...multiConfig };
+    newConfig[type][index] = null;
+    if (newConfig.activeClient?.type === type && newConfig.activeClient?.index === index) {
+      newConfig.activeClient = { type: 'qb', index: 0 };
+    }
+    setMultiConfig(newConfig);
+    saveMultiConfig(newConfig);
+    Widget.reloadUserWidgets();
   };
 
   const handleSave = async () => {
-    if (!url.value.trim()) { errorMsg.setValue('请输入服务器地址'); return; }
-    if (!username.value.trim()) { errorMsg.setValue('请输入用户名'); return; }
-    if (!password.value.trim()) { errorMsg.setValue('请输入密码'); return; }
-    errorMsg.setValue('');
-    saveClientConfig(clientType);
-    onConfigSaved({ url: url.value.trim(), username: username.value.trim(), password: password.value, refreshMinutes, clientType });
+    const active = multiConfig.activeClient || { type: 'qb', index: 0 };
+    const activeConfig = multiConfig[active.type][active.index];
+    if (activeConfig) {
+      onConfigSaved({
+        url: activeConfig.url,
+        username: activeConfig.username,
+        password: activeConfig.password,
+        refreshMinutes,
+        clientType: active.type,
+        clientIndex: active.index
+      });
+    }
     await Widget.reloadUserWidgets();
   };
 
-  const clientName = clientType === 'qb' ? 'qBittorrent WebUI' : 'Transmission WebUI';
+  const handleResetAll = () => {
+    const newConfig = getDefaultMultiConfig();
+    setMultiConfig(newConfig);
+    saveMultiConfig(newConfig);
+    onReset?.();
+  };
+
+  const clientName = currentType === 'qb' ? 'qBittorrent' : 'Transmission';
 
   return (
     <List navigationTitle="设置" toolbar={{
       topBarLeading: onBack ? <Button title="返回" systemImage="chevron.left" action={onBack} /> : undefined,
       topBarTrailing: <Button title="保存" action={handleSave} />
     }}>
-      {errorMsg.value ? (
-        <Section>
-          <HStack spacing={8} alignment="center">
-            <Image systemName="exclamationmark.triangle.fill" foregroundStyle="systemOrange" />
-            <Text foregroundStyle="red">{errorMsg.value}</Text>
-          </HStack>
-        </Section>
-      ) : null}
-
-      <Section header={<Text>客户端类型</Text>} footer={<Text>选择您使用的 BT 客户端，每个客户端独立保存配置</Text>}>
-        <HStack spacing={12} alignment="center">
-          <Image systemName="app.connected.to.app.below.fill" foregroundStyle="systemBlue" font={18} />
-          <Picker title="客户端" pickerStyle="segmented" value={clientType} onChanged={handleClientTypeChange} frame={{ maxWidth: "infinity" }}>
-            <Text tag="qb">qBittorrent</Text>
-            <Text tag="tr">Transmission</Text>
-          </Picker>
+      <Section header={
+        <HStack spacing={0} frame={{ maxWidth: Infinity }} background="systemFill" clipShape={{ type: 'rect', cornerRadius: 9 }} padding={2}>
+          {(['qb', 'tr'] as ClientType[]).map(type => (
+            <Button key={type} buttonStyle="plain" action={() => { setCurrentType(type); setExpandedIndex(null); }}>
+              <HStack spacing={6} padding={{ vertical: 6 }} frame={{ maxWidth: Infinity }}
+                background={currentType === type ? "secondarySystemGroupedBackground" : "clear" as Color}
+                clipShape={{ type: 'rect', cornerRadius: 7 }}
+                shadow={currentType === type ? { color: "#00000026" as Color, radius: 2, y: 1 } : undefined}>
+                <ClientIcon type={type} size={16} />
+                <Text font={13} fontWeight={currentType === type ? "semibold" : "medium"} foregroundStyle="label" textCase={null}>
+                  {type === 'qb' ? 'qBittorrent' : 'Transmission'}
+                </Text>
+              </HStack>
+            </Button>
+          ))}
         </HStack>
+      } footer={<Text>选择客户端类型，点击展开配置</Text>}>
+        {Array.from({ length: CLIENT_COUNT }, (_, i) => {
+          const cfg = multiConfig[currentType][i];
+          const name = cfg?.alias || `${clientName} ${i + 1}`;
+          const isConfigured = !!(cfg?.url && cfg?.username && cfg?.password);
+          return (
+            <VStack key={`${currentType}-${i}`} spacing={0}>
+              <HStack
+                padding={{ vertical: 10 }}
+                frame={{ maxWidth: Infinity }}
+                contentShape="rect"
+                gesture={{ gesture: TapGesture().onEnded(() => setExpandedIndex(expandedIndex === i ? null : i)), mask: 'gesture' }}
+              >
+                <ClientIcon type={currentType} size={18} />
+                <Text font={15} fontWeight="medium" padding={{ leading: 8 }}>{name}</Text>
+                <Spacer />
+                <Text font={13} foregroundStyle={isConfigured ? "systemGreen" : "secondaryLabel"}>{isConfigured ? "已配置" : "未配置"}</Text>
+                <Image systemName={expandedIndex === i ? "chevron.up" : "chevron.down"} foregroundStyle="tertiaryLabel" font={12} padding={{ leading: 8 }} />
+              </HStack>
+              {expandedIndex === i ? (
+                <ClientItem
+                  config={cfg}
+                  onUpdate={(c) => handleUpdateClient(currentType, i, c)}
+                  onReset={() => handleResetClient(currentType, i)}
+                />
+              ) : null}
+            </VStack>
+          );
+        })}
       </Section>
 
-      <Section header={<Text>服务器连接</Text>} footer={<Text>请输入 {clientName} 的完整地址，包含端口号</Text>}>
-        <SecureSettingField icon="server.rack" color="systemBlue" prompt="http://192.168.1.1:8080" value={url.value} onChanged={v => url.setValue(v)} show={showUrl} onToggle={() => setShowUrl(!showUrl)} />
-      </Section>
-
-      <Section header={<Text>账户信息</Text>}>
-        <SettingField icon="person.fill" color="systemGreen" prompt="用户名" value={username.value} onChanged={v => username.setValue(v)} />
-        <SecureSettingField icon="lock.fill" color="systemOrange" prompt="密码" value={password.value} onChanged={v => password.setValue(v)} show={showPassword} onToggle={() => setShowPassword(!showPassword)} />
-      </Section>
-
-      <Section header={<Text>小组件设置</Text>} footer={<Text>设置小组件自动刷新的时间间隔。实际刷新频率由系统根据电量和使用情况决定。</Text>}>
+      <Section header={<Text>小组件设置</Text>} footer={<Text>设置小组件自动刷新的时间间隔</Text>}>
         <HStack spacing={12} alignment="center">
           <Image systemName="clock.fill" foregroundStyle="systemPurple" font={18} />
           <Picker title="刷新间隔" pickerStyle="menu" value={refreshMinutes} onChanged={setRefreshMinutes} frame={{ maxWidth: "infinity" }}>
@@ -153,17 +295,17 @@ export function SettingsPage({ onConfigSaved, initialConfig, onBack, onReset }: 
       </Section>
 
       {onReset ? (
-        <Section header={<Text>危险操作</Text>} footer={<Text>清空所有服务器配置信息，此操作不可撤销</Text>}>
+        <Section header={<Text>危险操作</Text>} footer={<Text>清空所有客户端配置信息，此操作不可撤销</Text>}>
           <HStack
             padding={{ vertical: 14 }}
             frame={{ maxWidth: Infinity }}
             contentShape="rect"
-            gesture={{ gesture: TapGesture().onEnded(onReset), mask: 'gesture' }}
+            gesture={{ gesture: TapGesture().onEnded(handleResetAll), mask: 'gesture' }}
           >
             <HStack frame={{ width: 32, height: 32 }} background={"#FF3B30" as Color} clipShape={{ type: 'rect', cornerRadius: 7 }}>
               <Image systemName="arrow.counterclockwise" foregroundStyle="white" font={16} />
             </HStack>
-            <Text padding={{ leading: 12 }} font={17} foregroundStyle="#FF3B30">重新配置</Text>
+            <Text padding={{ leading: 12 }} font={17} foregroundStyle="#FF3B30">重置所有配置</Text>
             <Spacer />
           </HStack>
         </Section>

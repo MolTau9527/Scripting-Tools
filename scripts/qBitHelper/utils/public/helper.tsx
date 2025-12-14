@@ -1,6 +1,5 @@
 import { useObservable, useEffect, VStack, HStack, Text, List, Section, NavigationStack, Navigation, Widget, Image, Spacer, TapGesture, Color } from "scripting";
 import { SettingsPage, ConfigData } from '../../pages/SettingsPage';
-import { Display } from './display';
 import { ClientData, HistoryPoint } from './types';
 import { STORAGE_KEY, HISTORY_KEY, updateHistory } from './storage';
 import { fetchData, clearSession } from '../api';
@@ -11,15 +10,6 @@ const isValidConfig = (cfg: ConfigData | null): cfg is ConfigData =>
 const RowIcon = ({ name, color }: { name: string; color: Color }) => (
   <HStack frame={{ width: 32, height: 32 }} background={color} clipShape={{ type: 'rect', cornerRadius: 7 }}>
     <Image systemName={name} foregroundStyle="white" font={16} />
-  </HStack>
-);
-
-const SwitchButtons = ({ clientType }: { clientType: 'qb' | 'tr' }) => (
-  <HStack spacing={16}>
-    {(['qb', 'tr'] as const).map(t => (
-      <Image key={t} systemName={`${t === 'qb' ? 'q' : 't'}.circle.fill`} font={16}
-        foregroundStyle={t === clientType ? "accentColor" : "secondaryLabel"} />
-    ))}
   </HStack>
 );
 
@@ -40,28 +30,18 @@ const ActionRow = ({ icon, color, title, onTap, showArrow = true, trailing }: {
   </HStack>
 );
 
-const PreviewSection = ({ title, footer, data, history, size, clientType }: {
-  title: string; footer: string; data: ClientData; history?: HistoryPoint[];
-  size: 'small' | 'medium' | 'large'; clientType: 'qb' | 'tr';
-}) => (
-  <Section header={<Text>{title}</Text>} footer={<Text>{footer}</Text>}>
-    {size === 'small' ? (
-      <HStack>
-        <VStack padding={16} frame={{ width: 155, height: 155 }} background="systemBackground" clipShape={{ type: 'rect', cornerRadius: 20 }}>
-          <Display data={data} size={size} clientType={clientType} />
-          <Spacer />
-          <SwitchButtons clientType={clientType} />
-        </VStack>
-        <Spacer />
-      </HStack>
-    ) : (
-      <VStack padding={16}>
-        <Display data={data} history={history} size={size} clientType={clientType} />
-        <Spacer />
-        <SwitchButtons clientType={clientType} />
-      </VStack>
-    )}
-  </Section>
+const PreviewRow = ({ title, onTap }: { title: string; onTap: () => void }) => (
+  <HStack
+    padding={{ vertical: 14 }}
+    frame={{ maxWidth: Infinity }}
+    contentShape="rect"
+    gesture={{ gesture: TapGesture().onEnded(onTap), mask: 'gesture' }}
+  >
+    <RowIcon name="widget.small" color="#007AFF" />
+    <Text padding={{ leading: 12 }} font={17}>{title}</Text>
+    <Spacer />
+    <Image systemName="chevron.right" foregroundStyle="tertiaryLabel" font={14} fontWeight="semibold" />
+  </HStack>
 );
 
 export default function Helper() {
@@ -149,8 +129,6 @@ export default function Helper() {
     );
   }
 
-  const clientType = config.value?.clientType || 'qb';
-
   return (
     <NavigationStack>
       <List
@@ -220,13 +198,11 @@ export default function Helper() {
           <ActionRow icon="gear" color="#8E8E93" title="设置" onTap={() => showSettings.setValue(true)} />
         </Section>
 
-        {data.value ? (
-          <>
-            <PreviewSection title="大组件预览" footer="适用于 4x4 大尺寸小组件" data={data.value} history={history.value} size="large" clientType={clientType} />
-            <PreviewSection title="中组件预览" footer="适用于 2x4 中尺寸小组件" data={data.value} size="medium" clientType={clientType} />
-            <PreviewSection title="小组件预览" footer="适用于 2x2 小尺寸小组件" data={data.value} size="small" clientType={clientType} />
-          </>
-        ) : null}
+        <Section header={<Text>组件预览</Text>} footer={<Text>点击预览不同尺寸的小组件</Text>}>
+          <PreviewRow title="大组件预览" onTap={() => Widget.preview({ family: 'systemLarge' })} />
+          <PreviewRow title="中组件预览" onTap={() => Widget.preview({ family: 'systemMedium' })} />
+          <PreviewRow title="小组件预览" onTap={() => Widget.preview({ family: 'systemSmall' })} />
+        </Section>
       </List>
     </NavigationStack>
   );

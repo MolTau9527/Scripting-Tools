@@ -11,7 +11,7 @@
   "icon": "tray.full.fill",
   "color": "rgba(28, 140, 255,1)",
   "runInApp": false,
-  "version": "1.0.3",
+  "version": "1.0.4",
   "author": {
     "name": "Unknown",
     "email": null,
