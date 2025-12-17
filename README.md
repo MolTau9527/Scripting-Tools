@@ -31,35 +31,7 @@
 
 ---
 
-### 3. ipaTool - IPA 下载与应用降级工具
-
-> **声明：** 本脚本魔改自作者 **[小白脸](https://raw.githubusercontent.com/githubdulong/Script/master/ipaTool.scripting)**
-
-一个功能强大的 IPA 包下载和应用降级工具，支持从 App Store 下载历史版本应用。
-
-**主要功能：**
-- App Store 应用搜索
-- IPA 包下载
-- 应用历史版本降级
-- 下载任务管理
-- 已下载文件管理
-- Apple ID 登录管理
-
-**运行依赖：**
-- 需要 Surge 模块或 Loon 插件作为辅助支持（二选一）
-
-**技术特点：**
-- 完整的 Tab 导航界面（搜索、下载、文件、设置）
-- 支持多语言（中文、英文、日文、德文、法文等）
-- 下载进度实时显示
-- 登录历史记录管理
-
-**新增功能：**
-- 免更新，商店不会检测新版本（可通过覆盖安装恢复检测新版本）
-
----
-
-### 4. 智慧交通 - 城市交通状况监控
+### 3. 智慧交通 - 城市交通状况监控
 
 实时查看城市交通状况的桌面小组件，让你出行前了解路况。
 
@@ -74,7 +46,7 @@
 
 ---
 
-### 5. Scripting Store - 插件中心
+### 4. Scripting Store - 插件中心
 
 > **声明：** 本脚本仅做 App 适配，免访问网站。感谢原作者 [gallery.scripting.fun](https://gallery.scripting.fun) 提供网页服务。所有组件均收集自互联网，版权归原作者所有。
 
@@ -135,44 +107,23 @@ scripts/
 │       └── city_picker.tsx   # 城市选择器
 │
 ├── Scripting Store/          # 插件中心
-│   ├── script.json           # 脚本配置
-│   ├── index.tsx             # 主入口
-│   ├── types.ts              # 类型定义
-│   ├── api/                  # API 接口
-│   ├── screens/              # 页面组件
-│   │   └── StoreScreen.tsx   # 商店主页
-│   ├── components/           # UI 组件
-│   │   ├── PluginList.tsx    # 插件列表
-│   │   ├── PluginCard.tsx    # 插件卡片
-│   │   ├── PluginDetail.tsx  # 插件详情
-│   │   ├── SearchBar.tsx     # 搜索栏
-│   │   ├── SubmitForm.tsx    # 发布表单
-│   │   └── MyProfile.tsx     # 个人中心
-│   └── utils/                # 工具模块
-│       ├── installer.ts      # 安装器
-│       └── userSettings.ts   # 用户设置
-│
-└── ipaTool/                  # IPA 下载工具（魔改自小白脸）
     ├── script.json           # 脚本配置
-    ├── index.tsx             # 主入口
-    ├── components/           # 通用组件
-    ├── constants/            # 常量定义
-    ├── hooks/                # React Hooks
-    ├── modules/              # 功能模块
-    │   ├── download/         # 下载管理
-    │   ├── createGlobalStateUtils/ # 全局状态管理
-    │   ├── EventBus.ts       # 事件总线
-    │   └── BackgroundManager.ts # 后台管理
-    ├── pages/                # 页面组件
-    │   ├── Search/           # 搜索页
-    │   ├── Download/         # 下载页
-    │   ├── Files/            # 文件页
-    │   └── Settings/         # 设置页
-    ├── services/             # 服务层
-    │   ├── api/              # API 接口
-    │   └── server/           # 服务管理
-    ├── types/                # 类型定义
-    └── utils/                # 工具函数
+   ├── index.tsx             # 主入口
+    ├── types.ts              # 类型定义
+    ├── api/                  # API 接口
+    ├── screens/              # 页面组件
+    │   └── StoreScreen.tsx   # 商店主页
+    ├── components/           # UI 组件
+    │   ├── PluginList.tsx    # 插件列表
+    │   ├── PluginCard.tsx    # 插件卡片
+    │   ├── PluginDetail.tsx  # 插件详情
+    │   ├── SearchBar.tsx     # 搜索栏
+    │   ├── SubmitForm.tsx    # 发布表单
+    │   └── MyProfile.tsx     # 个人中心
+    └── utils/                # 工具模块
+        ├── installer.ts      # 安装器
+        └── userSettings.ts   # 用户设置
+
 ```
 
 ## 技术栈
