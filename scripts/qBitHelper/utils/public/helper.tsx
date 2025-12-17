@@ -30,19 +30,10 @@ const ActionRow = ({ icon, color, title, onTap, showArrow = true, trailing }: {
   </HStack>
 );
 
-const PreviewRow = ({ title, onTap }: { title: string; onTap: () => void }) => (
-  <HStack
-    padding={{ vertical: 14 }}
-    frame={{ maxWidth: Infinity }}
-    contentShape="rect"
-    gesture={{ gesture: TapGesture().onEnded(onTap), mask: 'gesture' }}
-  >
-    <RowIcon name="widget.small" color="#007AFF" />
-    <Text padding={{ leading: 12 }} font={17}>{title}</Text>
-    <Spacer />
-    <Image systemName="chevron.right" foregroundStyle="tertiaryLabel" font={14} fontWeight="semibold" />
-  </HStack>
-);
+const CHANGELOG = [
+  { version: "1.0.5", date: "2025-12-17", changes: ["优化底部切换按钮，使用图标直接切换", "合并组件预览为单个选项", "新增更新日志功能"] },
+  { version: "1.0.0", date: "2025-12-10", changes: ["支持 qBittorrent 和 Transmission", "支持多客户端配置", "小组件显示上传/下载统计", "支持自定义刷新间隔"] }
+];
 
 export default function Helper() {
   const dismiss = Navigation.useDismiss();
@@ -51,6 +42,7 @@ export default function Helper() {
   const error = useObservable("");
   const isLoading = useObservable(false);
   const showSettings = useObservable(false);
+  const showChangelog = useObservable(false);
   const history = useObservable<HistoryPoint[]>([]);
   const refreshStatus = useObservable<'idle' | 'success' | 'failed'>('idle');
 
@@ -116,6 +108,29 @@ export default function Helper() {
     showSettings.setValue(false);
   };
 
+  if (showChangelog.value) {
+    return (
+      <NavigationStack>
+        <List
+          listStyle="insetGroup"
+          navigationTitle="更新日志"
+          toolbar={{ topBarLeading: <Image systemName="chevron.left" gesture={{ gesture: TapGesture().onEnded(() => showChangelog.setValue(false)), mask: 'gesture' }} /> }}
+        >
+          {CHANGELOG.map((log) => (
+            <Section key={log.version} header={<HStack><Text>{log.version}</Text><Spacer /><Text opacity={0.6}>{log.date}</Text></HStack>}>
+              {log.changes.map((change, idx) => (
+                <HStack key={idx} padding={{ vertical: 8 }}>
+                  <Text font={14}>•</Text>
+                  <Text font={15} padding={{ leading: 8 }}>{change}</Text>
+                </HStack>
+              ))}
+            </Section>
+          ))}
+        </List>
+      </NavigationStack>
+    );
+  }
+
   if (showSettings.value) {
     return (
       <NavigationStack>
@@ -175,6 +190,20 @@ export default function Helper() {
         <Section header={<Text>操作</Text>}>
           <ActionRow
             icon="widget.small"
+            color="#007AFF"
+            title="组件预览"
+            onTap={async () => {
+              const index = await Dialog.actionSheet({
+                title: "选择预览尺寸",
+                actions: [{ label: "大组件" }, { label: "中组件" }, { label: "小组件" }]
+              });
+              if (index === 0) Widget.preview({ family: 'systemLarge' });
+              else if (index === 1) Widget.preview({ family: 'systemMedium' });
+              else if (index === 2) Widget.preview({ family: 'systemSmall' });
+            }}
+          />
+          <ActionRow
+            icon="arrow.clockwise"
             color="#34C759"
             title="刷新组件"
             showArrow={false}
@@ -198,10 +227,8 @@ export default function Helper() {
           <ActionRow icon="gear" color="#8E8E93" title="设置" onTap={() => showSettings.setValue(true)} />
         </Section>
 
-        <Section header={<Text>组件预览</Text>} footer={<Text>点击预览不同尺寸的小组件</Text>}>
-          <PreviewRow title="大组件预览" onTap={() => Widget.preview({ family: 'systemLarge' })} />
-          <PreviewRow title="中组件预览" onTap={() => Widget.preview({ family: 'systemMedium' })} />
-          <PreviewRow title="小组件预览" onTap={() => Widget.preview({ family: 'systemSmall' })} />
+        <Section header={<Text>关于</Text>}>
+          <ActionRow icon="doc.text" color="#5856D6" title="更新日志" onTap={() => showChangelog.setValue(true)} />
         </Section>
       </List>
     </NavigationStack>

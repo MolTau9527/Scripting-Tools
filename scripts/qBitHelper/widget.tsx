@@ -82,32 +82,54 @@ async function main() {
     currentClient = visibleClients[0];
   }
 
-  const currentIdx = visibleClients.findIndex(c => c.type === currentClient!.type && c.index === currentClient!.index);
-  const prevClient = visibleClients[(currentIdx - 1 + visibleClients.length) % visibleClients.length];
-  const nextClient = visibleClients[(currentIdx + 1) % visibleClients.length];
-
-  const ClientIcon = ({ type }: { type: ClientType }) => {
+  const ClientIcon = ({ type, size = 20, active = false }: { type: ClientType; size?: number; active?: boolean }) => {
     const path = getIconPath(type);
     if (FileManager.existsSync(path)) {
-      return <Image filePath={path} frame={{ width: 20, height: 20 }} clipShape={{ type: 'rect', cornerRadius: 4 }} resizable />;
+      return (
+        <Image
+          filePath={path}
+          frame={{ width: size, height: size }}
+          clipShape={{ type: 'rect', cornerRadius: size * 0.2 }}
+          resizable
+          opacity={active ? 1 : 0.4}
+        />
+      );
     }
-    return <Image systemName={type === 'qb' ? 'q.circle.fill' : 't.circle.fill'} font={16} foregroundStyle="secondaryLabel" />;
+    return (
+      <Image
+        systemName={type === 'qb' ? 'q.circle.fill' : 't.circle.fill'}
+        font={size - 4}
+        foregroundStyle={active ? "label" : "secondaryLabel"}
+        opacity={active ? 1 : 0.4}
+      />
+    );
   };
 
   const SwitchButtons = () => (
-    <HStack spacing={12} alignment="center">
-      <Button buttonStyle="plain" intent={SwitchClientIntent({ clientType: prevClient.type, clientIndex: prevClient.index })}>
-        <Image systemName="chevron.left" font={12} foregroundStyle="secondaryLabel" />
-      </Button>
-      <HStack spacing={6} alignment="center">
-        <ClientIcon type={currentClient!.type} />
-        <Text font={11} foregroundStyle="secondaryLabel">
-          {currentClient!.displayName.length > 8 ? currentClient!.displayName.slice(0, 8) + '..' : currentClient!.displayName}
-        </Text>
-      </HStack>
-      <Button buttonStyle="plain" intent={SwitchClientIntent({ clientType: nextClient.type, clientIndex: nextClient.index })}>
-        <Image systemName="chevron.right" font={12} foregroundStyle="secondaryLabel" />
-      </Button>
+    <HStack spacing={8} alignment="center">
+      {visibleClients.map((client) => {
+        const isActive = client.type === currentClient!.type && client.index === currentClient!.index;
+        if (isActive) {
+          return (
+            <VStack key={`${client.type}-${client.index}`} spacing={2} alignment="center">
+              <ClientIcon type={client.type} size={24} active />
+              <VStack frame={{ width: 4, height: 4 }} background="label" clipShape={{ type: 'rect', cornerRadius: 2 }} />
+            </VStack>
+          );
+        }
+        return (
+          <Button
+            key={`${client.type}-${client.index}`}
+            buttonStyle="plain"
+            intent={SwitchClientIntent({ clientType: client.type, clientIndex: client.index })}
+          >
+            <VStack spacing={2} alignment="center">
+              <ClientIcon type={client.type} size={24} active={false} />
+              <VStack frame={{ width: 4, height: 4 }} opacity={0} />
+            </VStack>
+          </Button>
+        );
+      })}
     </HStack>
   );
 

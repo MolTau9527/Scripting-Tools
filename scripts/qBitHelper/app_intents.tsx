@@ -18,6 +18,7 @@ export const SwitchClientIntent = AppIntentManager.register({
       clientType,
       clientIndex
     });
-    Widget.reloadAll();
+    await Widget.reloadAll();
+    return {};
   }
 })
