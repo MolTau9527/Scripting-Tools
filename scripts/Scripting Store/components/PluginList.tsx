@@ -1,6 +1,6 @@
 import { Image, ProgressView, ScrollView, Text, VStack, useState } from 'scripting'
 import type { LoadingState, Plugin } from '../types'
-import type { ThemeMode } from '../utils/theme'
+import { type ThemeMode, getThemeColors } from '../utils/theme'
 import { PluginCard } from './PluginCard'
 
 interface PluginListProps {
@@ -13,41 +13,42 @@ interface PluginListProps {
   themeMode: ThemeMode
 }
 
-const EmptyState = ({ message, icon }: { message: string; icon: string }) => (
+const EmptyState = ({ message, icon, colors }: { message: string; icon: string; colors: ReturnType<typeof getThemeColors> }) => (
   <VStack frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }} spacing={16} alignment="center">
-    <Image systemName={icon} foregroundStyle="#9ca3af" frame={{ width: 48, height: 48 }} />
-    <Text font={16} foregroundStyle="#6b7280">{message}</Text>
+    <Image systemName={icon} foregroundStyle={colors.textTertiary} frame={{ width: 48, height: 48 }} />
+    <Text font={16} foregroundStyle={colors.textSecondary}>{message}</Text>
   </VStack>
 )
 
-const LoadingView = () => (
+const LoadingView = ({ colors }: { colors: ReturnType<typeof getThemeColors> }) => (
   <VStack frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }} spacing={16} alignment="center">
     <ProgressView />
-    <Text font={16} foregroundStyle="#6b7280">加载中...</Text>
+    <Text font={16} foregroundStyle={colors.textSecondary}>加载中...</Text>
   </VStack>
 )
 
-const ErrorView = ({ message, onRetry }: { message: string; onRetry: () => void }) => (
+const ErrorView = ({ message, onRetry, colors }: { message: string; onRetry: () => void; colors: ReturnType<typeof getThemeColors> }) => (
   <VStack frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }} spacing={16} alignment="center" onTapGesture={onRetry}>
-    <Image systemName="exclamationmark.circle" foregroundStyle="#ef4444" frame={{ width: 48, height: 48 }} />
-    <Text font={16} foregroundStyle="#6b7280">{message}</Text>
-    <Text font={14} foregroundStyle="#007aff">点击重试</Text>
+    <Image systemName="exclamationmark.circle" foregroundStyle={colors.buttonDanger} frame={{ width: 48, height: 48 }} />
+    <Text font={16} foregroundStyle={colors.textSecondary}>{message}</Text>
+    <Text font={14} foregroundStyle={colors.buttonPrimary}>点击重试</Text>
   </VStack>
 )
 
 export const PluginList = ({ plugins, loadingState, error, onInstall, onDetail, onRefresh, themeMode }: PluginListProps) => {
   const [, setRefresh] = useState(0)
+  const colors = getThemeColors(themeMode)
 
   if (loadingState === 'loading') {
-    return <LoadingView />
+    return <LoadingView colors={colors} />
   }
 
   if (loadingState === 'error' && error) {
-    return <ErrorView message={error} onRetry={onRefresh} />
+    return <ErrorView message={error} onRetry={onRefresh} colors={colors} />
   }
 
   if (plugins.length === 0) {
-    return <EmptyState message="未找到匹配的插件" icon="magnifyingglass" />
+    return <EmptyState message="未找到匹配的插件" icon="magnifyingglass" colors={colors} />
   }
 
   return (

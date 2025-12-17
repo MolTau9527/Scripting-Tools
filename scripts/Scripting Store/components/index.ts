@@ -1,4 +1,5 @@
 export { AuthorProfile } from './AuthorProfile'
+export { Changelog } from './Changelog'
 export { MyProfile } from './MyProfile'
 export { PluginCard } from './PluginCard'
 export { PluginDetail } from './PluginDetail'

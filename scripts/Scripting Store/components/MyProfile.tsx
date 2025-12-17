@@ -1,7 +1,7 @@
-import { Button, HStack, Image, Navigation, ScrollView, Spacer, Text, TextField, Toggle, VStack, useState, useEffect } from 'scripting'
+import { Button, HStack, Image, Navigation, ScrollView, Spacer, Text, TextField, Toggle, VStack, ZStack, useState, useEffect } from 'scripting'
 import type { Plugin, UserSettings } from '../types'
 import { getUserSettings, saveUserSettings, loadDefaultAvatar, resetUserSettings, toggleFollowPlugin } from '../utils/userSettings'
-import { type ThemeMode, getThemeColors, getActualThemeMode } from '../utils/theme'
+import { type ThemeMode, getThemeColors, getActualThemeMode, getGradientBackground, themedColors } from '../utils/theme'
 
 interface MyProfileProps {
   plugins: Plugin[]
@@ -15,6 +15,9 @@ export const MyProfile = ({ plugins, onRefresh, themeMode, onDetail, onInstall }
   const dismiss = Navigation.useDismiss()
   const actualTheme = getActualThemeMode(themeMode)
   const colors = getThemeColors(themeMode)
+  const gradientBg = getGradientBackground(themeMode)
+  const labelColor = themedColors.labelPrimary(themeMode)
+  const placeholderColor = themedColors.placeholder(themeMode)
   const [settings, setSettings] = useState<UserSettings>(getUserSettings())
   const [showSettings, setShowSettings] = useState(false)
   const [myPlugins, setMyPlugins] = useState<Plugin[]>([])
@@ -60,7 +63,7 @@ export const MyProfile = ({ plugins, onRefresh, themeMode, onDetail, onInstall }
   }
 
   return (
-    <VStack frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }} background={colors.background} preferredColorScheme={actualTheme}>
+    <VStack frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }} background={gradientBg} preferredColorScheme={actualTheme}>
       <HStack padding={16} background={colors.cardBackground} alignment="center">
         <Button action={() => dismiss()}>
           <Text font={16} foregroundStyle={colors.buttonPrimary}>返回</Text>
@@ -85,31 +88,35 @@ export const MyProfile = ({ plugins, onRefresh, themeMode, onDetail, onInstall }
                 )}
               </Button>
 
-              <VStack alignment="leading" spacing={4}>
-                <HStack alignment="center" spacing={8}>
-                  <Text font={18} fontWeight="semibold" foregroundStyle={colors.textPrimary}>{settings.authorName || '未设置昵称'}</Text>
-                  <Button action={() => setShowSettings(!showSettings)}>
-                    <Text font={12} foregroundStyle={colors.textTertiary}>个性设置</Text>
-                  </Button>
-                </HStack>
+              <VStack alignment="leading" spacing={4} frame={{ maxWidth: 'infinity', alignment: 'leading' }}>
+                <Text font={18} fontWeight="semibold" foregroundStyle={colors.textPrimary}>{settings.authorName || '未设置昵称'}</Text>
                 <Text font={13} foregroundStyle={colors.textSecondary}>{myPlugins.length} 个作品</Text>
               </VStack>
+              <Button action={() => setShowSettings(!showSettings)}>
+                <Image systemName={showSettings ? 'chevron.up' : 'gearshape'} foregroundStyle={colors.textTertiary} frame={{ width: 20, height: 20 }} />
+              </Button>
             </HStack>
 
             {showSettings && (
               <VStack padding={12} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 8 }} spacing={12}>
                 <VStack alignment="leading" spacing={4}>
-                  <Text font={14} fontWeight="medium" foregroundStyle={actualTheme === 'dark' ? '#ffffff' : colors.textPrimary}>作者名</Text>
-                  <TextField title="" value={settings.authorName} prompt="输入作者名..." onChanged={(value) => { const newSettings = saveUserSettings({ authorName: value }); setSettings(newSettings) }} foregroundStyle={colors.textPrimary} />
+                  <Text font={14} fontWeight="medium" foregroundStyle={labelColor}>作者名</Text>
+                  <ZStack alignment="leading">
+                    {!settings.authorName && <Text font={14} foregroundStyle={placeholderColor} padding={{ leading: 4 }}>请输入作者名</Text>}
+                    <TextField title="" value={settings.authorName} onChanged={(value) => { const newSettings = saveUserSettings({ authorName: value }); setSettings(newSettings) }} foregroundStyle={colors.textPrimary} />
+                  </ZStack>
                 </VStack>
 
                 <VStack alignment="leading" spacing={4}>
-                  <Text font={14} fontWeight="medium" foregroundStyle={actualTheme === 'dark' ? '#ffffff' : colors.textPrimary}>仓库地址</Text>
-                  <TextField title="" value={settings.repoUrl} prompt="输入 GitHub 仓库地址..." onChanged={(value) => { const newSettings = saveUserSettings({ repoUrl: value }); setSettings(newSettings) }} textInputAutocapitalization="never" autocorrectionDisabled foregroundStyle={colors.textPrimary} />
+                  <Text font={14} fontWeight="medium" foregroundStyle={labelColor}>个人主页</Text>
+                  <ZStack alignment="leading">
+                    {!settings.repoUrl && <Text font={14} foregroundStyle={placeholderColor} padding={{ leading: 4 }}>请输入个人主页地址</Text>}
+                    <TextField title="" value={settings.repoUrl} onChanged={(value) => { const newSettings = saveUserSettings({ repoUrl: value }); setSettings(newSettings) }} textInputAutocapitalization="never" autocorrectionDisabled foregroundStyle={colors.textPrimary} />
+                  </ZStack>
                 </VStack>
 
                 <HStack alignment="center">
-                  <Text font={14} fontWeight="medium" foregroundStyle={actualTheme === 'dark' ? '#ffffff' : colors.textPrimary}>发布时自动填写作者名</Text>
+                  <Text font={14} fontWeight="medium" foregroundStyle={labelColor}>发布时自动填写作者名</Text>
                   <Spacer />
                   <Toggle title="" value={settings.applyAuthorToPublish} onChanged={(value) => { const newSettings = saveUserSettings({ applyAuthorToPublish: value }); setSettings(newSettings) }} />
                 </HStack>
@@ -128,23 +135,27 @@ export const MyProfile = ({ plugins, onRefresh, themeMode, onDetail, onInstall }
 
             {!settings.authorName ? (
               <VStack padding={20} spacing={8}>
-                <Image systemName="person.crop.circle.badge.questionmark" foregroundStyle={colors.textTertiary} frame={{ width: 40, height: 40 }} />
+                <Image systemName="person.crop.circle.badge.questionmark" font={32} foregroundStyle={colors.textPrimary} frame={{ width: 40, height: 40 }} />
                 <Text font={14} foregroundStyle={colors.textTertiary}>请先设置作者名</Text>
               </VStack>
             ) : myPlugins.length === 0 ? (
               <VStack padding={20} spacing={8}>
-                <Image systemName="doc.text.magnifyingglass" foregroundStyle={colors.textTertiary} frame={{ width: 40, height: 40 }} />
+                <Image systemName="doc.text.magnifyingglass" font={32} foregroundStyle={colors.textPrimary} frame={{ width: 40, height: 40 }} />
                 <Text font={14} foregroundStyle={colors.textTertiary}>暂无作品</Text>
               </VStack>
             ) : (
               <VStack spacing={8}>
                 {myPlugins.map((plugin, index) => (
                   <HStack key={plugin.id || index} padding={12} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 8 }} spacing={12} onTapGesture={() => onDetail(plugin)}>
-                    {plugin.icon.startsWith('data:') || plugin.icon.startsWith('http') ? (
+                    {plugin.symbol ? (
+                      <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
+                        <Image systemName={plugin.symbol} font={24} foregroundStyle={colors.textPrimary} />
+                      </VStack>
+                    ) : plugin.icon && (plugin.icon.startsWith('data:') || plugin.icon.startsWith('http')) ? (
                       <Image imageUrl={plugin.icon} resizable frame={{ width: 44, height: 44 }} clipShape={{ type: 'rect', cornerRadius: 10 }} />
                     ) : (
                       <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
-                        <Text font={24}>{plugin.icon}</Text>
+                        <Text font={24}>{plugin.icon || '📦'}</Text>
                       </VStack>
                     )}
                     <VStack alignment="leading" spacing={2} frame={{ maxWidth: 'infinity', alignment: 'leading' }}>
@@ -165,18 +176,22 @@ export const MyProfile = ({ plugins, onRefresh, themeMode, onDetail, onInstall }
 
             {followedPlugins.length === 0 ? (
               <VStack padding={20} spacing={8}>
-                <Image systemName="star" foregroundStyle={colors.textTertiary} frame={{ width: 40, height: 40 }} />
+                <Image systemName="star" font={32} foregroundStyle={colors.textPrimary} frame={{ width: 40, height: 40 }} />
                 <Text font={14} foregroundStyle={colors.textTertiary}>暂无关注</Text>
               </VStack>
             ) : (
               <VStack spacing={8}>
                 {followedPlugins.map((plugin, index) => (
                   <HStack key={plugin.id || index} padding={12} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 8 }} spacing={12} onTapGesture={() => onDetail(plugin)}>
-                    {plugin.icon.startsWith('data:') || plugin.icon.startsWith('http') ? (
+                    {plugin.symbol ? (
+                      <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
+                        <Image systemName={plugin.symbol} font={24} foregroundStyle={colors.textPrimary} />
+                      </VStack>
+                    ) : plugin.icon && (plugin.icon.startsWith('data:') || plugin.icon.startsWith('http')) ? (
                       <Image imageUrl={plugin.icon} resizable frame={{ width: 44, height: 44 }} clipShape={{ type: 'rect', cornerRadius: 10 }} />
                     ) : (
                       <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
-                        <Text font={24}>{plugin.icon}</Text>
+                        <Text font={24}>{plugin.icon || '📦'}</Text>
                       </VStack>
                     )}
                     <VStack alignment="leading" spacing={2} frame={{ maxWidth: 'infinity', alignment: 'leading' }}>

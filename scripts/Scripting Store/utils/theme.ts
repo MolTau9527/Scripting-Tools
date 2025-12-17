@@ -39,3 +39,18 @@ export const getHeaderGradient = (mode: ThemeMode) => gradient('linear', {
   colors: isDark(mode) ? ['#1e3a5f', '#1e293b'] : ['#1e3a5f', '#2d5a87'],
   startPoint: 'topLeading', endPoint: 'bottomTrailing'
 })
+
+// 主题感知的颜色辅助函数
+export const getThemedColor = (mode: ThemeMode, lightColor: string, darkColor: string) =>
+  isDark(mode) ? darkColor : lightColor
+
+// 常用的主题颜色
+export const themedColors = {
+  labelPrimary: (mode: ThemeMode) => isDark(mode) ? '#ffffff' : lightColors.textPrimary,
+  labelSecondary: (mode: ThemeMode) => isDark(mode) ? '#ffffff' : lightColors.textSecondary,
+  placeholder: (mode: ThemeMode) => isDark(mode) ? '#9ca3af' : lightColors.textTertiary,
+  // 提示框颜色
+  tipBackground: (mode: ThemeMode) => isDark(mode) ? '#422006' : '#fef3c7',
+  tipIcon: (mode: ThemeMode) => isDark(mode) ? '#fbbf24' : '#d97706',
+  tipText: (mode: ThemeMode) => isDark(mode) ? '#fcd34d' : '#92400e',
+}
