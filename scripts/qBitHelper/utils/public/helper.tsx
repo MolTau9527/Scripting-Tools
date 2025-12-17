@@ -31,6 +31,7 @@ const ActionRow = ({ icon, color, title, onTap, showArrow = true, trailing }: {
 );
 
 const CHANGELOG = [
+  { version: "1.0.6", date: "2025-12-17", changes: ["优化组件渲染速度"] },
   { version: "1.0.5", date: "2025-12-17", changes: ["优化底部切换按钮，使用图标直接切换", "合并组件预览为单个选项", "新增更新日志功能"] },
   { version: "1.0.0", date: "2025-12-10", changes: ["支持 qBittorrent 和 Transmission", "支持多客户端配置", "小组件显示上传/下载统计", "支持自定义刷新间隔"] }
 ];
