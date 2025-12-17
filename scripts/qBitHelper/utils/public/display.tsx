@@ -28,15 +28,24 @@ const formatTime = (ts: number) => {
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
 };
 
-const formatVersion = (v?: string) => v ? (v.toLowerCase().startsWith('v') ? v : `v${v}`) : undefined;
-
-const getClientName = (clientType?: 'qb' | 'tr') => {
-  return clientType === 'tr' ? 'Transmission' : 'qBittorrent';
+const formatVersion = (v?: string) => {
+  if (!v) return undefined;
+  return v.toLowerCase().startsWith('v') ? v : `v${v}`;
 };
 
-function StatCard({ icon, label, value, color, compact }: { icon: string; label: string; value: string; color: TextColor; compact?: boolean }) {
+const getClientName = (clientType?: 'qb' | 'tr') => clientType === 'tr' ? 'Transmission' : 'qBittorrent';
+
+function StatCard({ icon, label, value, color, compact }: { 
+  icon: string; label: string; value: string; color: TextColor; compact?: boolean 
+}) {
   return (
-    <HStack spacing={compact ? 6 : 8} padding={{ horizontal: 10, vertical: 8 }} background="secondarySystemBackground" clipShape={{ type: 'rect', cornerRadius: 10 }} frame={{ minWidth: 0, maxWidth: "infinity" }}>
+    <HStack 
+      spacing={compact ? 6 : 8} 
+      padding={{ horizontal: 10, vertical: 8 }} 
+      background="secondarySystemBackground" 
+      clipShape={{ type: 'rect', cornerRadius: 10 }} 
+      frame={{ minWidth: 0, maxWidth: "infinity" }}
+    >
       <Text font={14}>{icon}</Text>
       <VStack spacing={2} alignment="leading" frame={{ minWidth: 0, maxWidth: "infinity" }}>
         <Text font={9} opacity={0.5}>{label}</Text>
@@ -62,7 +71,9 @@ function RateChart({ history, data, rateKey, color, label }: {
       </HStack>
       <Chart chartYAxis="hidden" frame={{ maxHeight: 80 }}>
         <LineChart marks={recentHistory.map((p, idx) => ({
-          label: formatTime(p.timestamp), value: values[idx] - minY, foregroundStyle: color,
+          label: formatTime(p.timestamp), 
+          value: values[idx] - minY, 
+          foregroundStyle: color,
           shadow: { color, radius: 7, y: 7 }
         }))} />
       </Chart>
@@ -109,6 +120,7 @@ function SmallWidget({ data, clientType }: { data: ClientData; clientType?: 'qb'
 function MediumWidget({ data, clientType }: { data: ClientData; clientType?: 'qb' | 'tr' }) {
   const version = formatVersion(data.version);
   const time = formatTime(Date.now());
+  
   return (
     <VStack spacing={8} alignment="center" frame={FULL_WIDTH}>
       <HStack alignment="center" frame={FULL_WIDTH}>
@@ -142,6 +154,7 @@ function LargeWidget({ data, history, clientType }: { data: ClientData; history:
     { label: "下载量", value: formatBytes(data.download), color: "systemRed" as TextColor },
     { label: "种子数", value: String(data.seeds), color: "systemBlue" as TextColor }
   ];
+  
   return (
     <VStack spacing={12} alignment="center" frame={FULL_WIDTH}>
       <HStack alignment="center" spacing={8}>

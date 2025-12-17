@@ -25,6 +25,7 @@ const loginQb = async (config: ConfigData): Promise<string | null> => {
       body: `username=${encodeURIComponent(config.username)}&password=${encodeURIComponent(config.password)}`,
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     });
+    
     if ((await response.text()) !== 'Ok.') return null;
     return extractSID(response.headers.get('set-cookie') || response.headers.get('Set-Cookie'));
   } catch {
@@ -91,6 +92,4 @@ export const fetchQbData = async (config: ConfigData): Promise<ClientData | null
   }
 };
 
-export const clearQbSession = () => {
-  Storage.remove(QB_SESSION_KEY);
-};
+export const clearQbSession = () => Storage.remove(QB_SESSION_KEY);

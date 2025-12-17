@@ -20,6 +20,10 @@ interface SettingsPageProps {
 const DEFAULT_REFRESH = 0.5;
 const MULTI_CLIENT_KEY = 'multiClientConfig';
 const CLIENT_COUNT = 3;
+const CLIENT_ICON_URLS = {
+  qb: 'https://avatars.githubusercontent.com/u/2131270',
+  tr: 'https://avatars.githubusercontent.com/u/223312'
+};
 
 type SystemColor = "systemBlue" | "systemGreen" | "systemOrange" | "systemPurple" | "systemGray" | "systemRed";
 
@@ -32,6 +36,7 @@ const getDefaultMultiConfig = (): MultiClientConfig => ({
 const loadMultiConfig = (): MultiClientConfig => {
   const saved = Storage.get<MultiClientConfig>(MULTI_CLIENT_KEY);
   if (!saved) return getDefaultMultiConfig();
+  
   return {
     qb: saved.qb?.length === CLIENT_COUNT ? saved.qb : Array(CLIENT_COUNT).fill(null).map((_, i) => saved.qb?.[i] || null),
     tr: saved.tr?.length === CLIENT_COUNT ? saved.tr : Array(CLIENT_COUNT).fill(null).map((_, i) => saved.tr?.[i] || null),
@@ -40,164 +45,6 @@ const loadMultiConfig = (): MultiClientConfig => {
 };
 
 const saveMultiConfig = (config: MultiClientConfig) => Storage.set(MULTI_CLIENT_KEY, config);
-
-const SettingField = ({ icon, color, prompt, value, onChanged }: {
-  icon: string; color: SystemColor; prompt: string; value: string; onChanged: (v: string) => void;
-}) => {
-  const iconElement = useMemo(() => (
-    <Image systemName={icon} foregroundStyle={color} font={18} />
-  ), [icon, color]);
-
-  return (
-    <HStack spacing={12} alignment="center">
-      {iconElement}
-      <TextField title="" prompt={prompt} value={value} onChanged={onChanged} frame={{ maxWidth: "infinity" }} />
-    </HStack>
-  );
-};
-
-const SecureSettingField = ({ icon, color, prompt, value, onChanged }: {
-  icon: string; color: SystemColor; prompt: string; value: string; onChanged: (v: string) => void;
-}) => {
-  const iconElement = useMemo(() => (
-    <Image systemName={icon} foregroundStyle={color} font={18} />
-  ), [icon, color]);
-
-  return (
-    <HStack spacing={12} alignment="center">
-      {iconElement}
-      <SecureField title="" prompt={prompt} value={value} onChanged={onChanged} />
-    </HStack>
-  );
-};
-
-function ClientItem({ config, onUpdate, onReset }: {
-  config: ClientConfig | null; onUpdate: (config: ClientConfig) => void; onReset: () => void;
-}) {
-  const [alias, setAlias] = useState(config?.alias || '');
-  const [url, setUrl] = useState(config?.url || '');
-  const [username, setUsername] = useState(config?.username || '');
-  const [password, setPassword] = useState(config?.password || '');
-  const [visible, setVisible] = useState(config?.visible ?? false);
-  const isInitiallyConfigured = !!(config?.url && config?.username && config?.password);
-  const [saved, setSaved] = useState(isInitiallyConfigured);
-
-  useEffect(() => {
-    setAlias(config?.alias || '');
-    setUrl(config?.url || '');
-    setUsername(config?.username || '');
-    setPassword(config?.password || '');
-    setVisible(config?.visible ?? false);
-    setSaved(!!(config?.url && config?.username && config?.password));
-  }, [config]);
-
-  // 检测字段是否有变化
-  const hasChanges = useMemo(() => {
-    return alias !== (config?.alias || '') ||
-           url !== (config?.url || '') ||
-           username !== (config?.username || '') ||
-           password !== (config?.password || '') ||
-           visible !== (config?.visible ?? false);
-  }, [alias, url, username, password, visible, config]);
-
-  const isConfigured = useMemo(() => !!(url && username && password), [url, username, password]);
-
-  const handleSave = useCallback(() => {
-    onUpdate({ url, username, password, alias, visible });
-    setSaved(true);
-  }, [url, username, password, alias, visible, onUpdate]);
-
-  const handleFieldChange = useCallback((setter: (v: string) => void) => {
-    return (v: string) => {
-      setter(v);
-      setSaved(false);
-    };
-  }, []);
-
-  const handleToggleVisible = useCallback(() => {
-    setVisible(v => !v);
-    setSaved(false);
-  }, []);
-
-  const toggleSwitch = useMemo(() => (
-    <HStack frame={{ width: 44, height: 26 }} background={visible ? "systemGreen" : "systemFill" as Color} clipShape={{ type: 'rect', cornerRadius: 13 }} padding={2}>
-      {visible ? <Spacer /> : null}
-      <VStack frame={{ width: 22, height: 22 }} background="white" clipShape={{ type: 'rect', cornerRadius: 11 }} shadow={{ color: "#00000026" as Color, radius: 1, y: 1 }} />
-      {visible ? null : <Spacer />}
-    </HStack>
-  ), [visible]);
-
-  const statusBadge = useMemo(() => {
-    // 如果有变化且已配置完整，显示保存按钮
-    if (hasChanges && isConfigured) {
-      return (
-        <Button buttonStyle="plain" action={handleSave}>
-          <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background="systemBlue" clipShape={{ type: 'rect', cornerRadius: 6 }}>
-            <Image systemName="checkmark" foregroundStyle="white" font={12} />
-            <Text font={13} foregroundStyle="white" fontWeight="medium">保存</Text>
-          </HStack>
-        </Button>
-      );
-    }
-    if (saved && !hasChanges) {
-      return (
-        <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background="systemGreen" clipShape={{ type: 'rect', cornerRadius: 6 }}>
-          <Image systemName="checkmark" foregroundStyle="white" font={12} />
-          <Text font={13} foregroundStyle="white" fontWeight="medium">已保存</Text>
-        </HStack>
-      );
-    }
-    if (!isConfigured) {
-      return (
-        <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background={"#FF3B30" as Color} clipShape={{ type: 'rect', cornerRadius: 6 }}>
-          <Image systemName="xmark" foregroundStyle="white" font={12} />
-          <Text font={13} foregroundStyle="white" fontWeight="medium">未配置</Text>
-        </HStack>
-      );
-    }
-    return (
-      <Button buttonStyle="plain" action={handleSave}>
-        <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background="systemBlue" clipShape={{ type: 'rect', cornerRadius: 6 }}>
-          <Image systemName="checkmark" foregroundStyle="white" font={12} />
-          <Text font={13} foregroundStyle="white" fontWeight="medium">保存</Text>
-        </HStack>
-      </Button>
-    );
-  }, [saved, hasChanges, isConfigured, handleSave]);
-
-  return (
-    <VStack spacing={10} padding={{ vertical: 8 }}>
-      <HStack spacing={8} alignment="center">
-        <Image systemName="eye" foregroundStyle="systemBlue" font={14} />
-        <Text font={14}>在小组件中显示</Text>
-        <Spacer />
-        <Button buttonStyle="plain" action={handleToggleVisible}>
-          {toggleSwitch}
-        </Button>
-      </HStack>
-
-      <SettingField icon="tag" color="systemPurple" prompt="别名（可选）" value={alias} onChanged={handleFieldChange(setAlias)} />
-      <SettingField icon="server.rack" color="systemBlue" prompt="http://192.168.1.1:8080" value={url} onChanged={handleFieldChange(setUrl)} />
-      <SettingField icon="person.fill" color="systemGreen" prompt="用户名" value={username} onChanged={handleFieldChange(setUsername)} />
-      <SecureSettingField icon="lock.fill" color="systemOrange" prompt="密码" value={password} onChanged={handleFieldChange(setPassword)} />
-
-      <HStack spacing={8} alignment="center">
-        {statusBadge}
-        <Button buttonStyle="plain" action={onReset}>
-          <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background="systemGray" clipShape={{ type: 'rect', cornerRadius: 6 }}>
-            <Image systemName="arrow.counterclockwise" foregroundStyle="white" font={12} />
-            <Text font={13} foregroundStyle="white" fontWeight="medium">重置</Text>
-          </HStack>
-        </Button>
-      </HStack>
-    </VStack>
-  );
-}
-
-const CLIENT_ICON_URLS = {
-  qb: 'https://avatars.githubusercontent.com/u/2131270',
-  tr: 'https://avatars.githubusercontent.com/u/223312'
-};
 
 const getIconPath = (type: ClientType) => `${FileManager.documentsDirectory}/qbit_${type}_icon.png`;
 
@@ -217,6 +64,147 @@ const ensureIcons = async () => {
     }
   }
 };
+
+const SettingField = ({ icon, color, prompt, value, onChanged }: {
+  icon: string; color: SystemColor; prompt: string; value: string; onChanged: (v: string) => void;
+}) => (
+  <HStack spacing={12} alignment="center">
+    <Image systemName={icon} foregroundStyle={color} font={18} />
+    <TextField title="" prompt={prompt} value={value} onChanged={onChanged} frame={{ maxWidth: "infinity" }} />
+  </HStack>
+);
+
+const SecureSettingField = ({ icon, color, prompt, value, onChanged }: {
+  icon: string; color: SystemColor; prompt: string; value: string; onChanged: (v: string) => void;
+}) => (
+  <HStack spacing={12} alignment="center">
+    <Image systemName={icon} foregroundStyle={color} font={18} />
+    <SecureField title="" prompt={prompt} value={value} onChanged={onChanged} />
+  </HStack>
+);
+
+const ToggleSwitch = ({ visible }: { visible: boolean }) => (
+  <HStack frame={{ width: 44, height: 26 }} background={visible ? "systemGreen" : "systemFill" as Color} clipShape={{ type: 'rect', cornerRadius: 13 }} padding={2}>
+    {visible ? <Spacer /> : null}
+    <VStack frame={{ width: 22, height: 22 }} background="white" clipShape={{ type: 'rect', cornerRadius: 11 }} shadow={{ color: "#00000026" as Color, radius: 1, y: 1 }} />
+    {!visible ? <Spacer /> : null}
+  </HStack>
+);
+
+const StatusBadge = ({ saved, hasChanges, isConfigured, onSave }: {
+  saved: boolean; hasChanges: boolean; isConfigured: boolean; onSave: () => void;
+}) => {
+  if (hasChanges && isConfigured) {
+    return (
+      <Button buttonStyle="plain" action={onSave}>
+        <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background="systemBlue" clipShape={{ type: 'rect', cornerRadius: 6 }}>
+          <Image systemName="checkmark" foregroundStyle="white" font={12} />
+          <Text font={13} foregroundStyle="white" fontWeight="medium">保存</Text>
+        </HStack>
+      </Button>
+    );
+  }
+  
+  if (saved && !hasChanges) {
+    return (
+      <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background="systemGreen" clipShape={{ type: 'rect', cornerRadius: 6 }}>
+        <Image systemName="checkmark" foregroundStyle="white" font={12} />
+        <Text font={13} foregroundStyle="white" fontWeight="medium">已保存</Text>
+      </HStack>
+    );
+  }
+  
+  if (!isConfigured) {
+    return (
+      <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background={"#FF3B30" as Color} clipShape={{ type: 'rect', cornerRadius: 6 }}>
+        <Image systemName="xmark" foregroundStyle="white" font={12} />
+        <Text font={13} foregroundStyle="white" fontWeight="medium">未配置</Text>
+      </HStack>
+    );
+  }
+  
+  return (
+    <Button buttonStyle="plain" action={onSave}>
+      <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background="systemBlue" clipShape={{ type: 'rect', cornerRadius: 6 }}>
+        <Image systemName="checkmark" foregroundStyle="white" font={12} />
+        <Text font={13} foregroundStyle="white" fontWeight="medium">保存</Text>
+      </HStack>
+    </Button>
+  );
+};
+
+function ClientItem({ config, onUpdate, onReset }: {
+  config: ClientConfig | null; onUpdate: (config: ClientConfig) => void; onReset: () => void;
+}) {
+  const [alias, setAlias] = useState(config?.alias || '');
+  const [url, setUrl] = useState(config?.url || '');
+  const [username, setUsername] = useState(config?.username || '');
+  const [password, setPassword] = useState(config?.password || '');
+  const [visible, setVisible] = useState(config?.visible ?? false);
+  const [saved, setSaved] = useState(!!(config?.url && config?.username && config?.password));
+
+  useEffect(() => {
+    setAlias(config?.alias || '');
+    setUrl(config?.url || '');
+    setUsername(config?.username || '');
+    setPassword(config?.password || '');
+    setVisible(config?.visible ?? false);
+    setSaved(!!(config?.url && config?.username && config?.password));
+  }, [config]);
+
+  const hasChanges = useMemo(() => {
+    return alias !== (config?.alias || '') ||
+           url !== (config?.url || '') ||
+           username !== (config?.username || '') ||
+           password !== (config?.password || '') ||
+           visible !== (config?.visible ?? false);
+  }, [alias, url, username, password, visible, config]);
+
+  const isConfigured = useMemo(() => !!(url && username && password), [url, username, password]);
+
+  const handleSave = useCallback(() => {
+    onUpdate({ url, username, password, alias, visible });
+    setSaved(true);
+  }, [url, username, password, alias, visible, onUpdate]);
+
+  const handleFieldChange = useCallback((setter: (v: string) => void) => (v: string) => {
+    setter(v);
+    setSaved(false);
+  }, []);
+
+  const handleToggleVisible = useCallback(() => {
+    setVisible(v => !v);
+    setSaved(false);
+  }, []);
+
+  return (
+    <VStack spacing={10} padding={{ vertical: 8 }}>
+      <HStack spacing={8} alignment="center">
+        <Image systemName="eye" foregroundStyle="systemBlue" font={14} />
+        <Text font={14}>在小组件中显示</Text>
+        <Spacer />
+        <Button buttonStyle="plain" action={handleToggleVisible}>
+          <ToggleSwitch visible={visible} />
+        </Button>
+      </HStack>
+
+      <SettingField icon="tag" color="systemPurple" prompt="别名（可选）" value={alias} onChanged={handleFieldChange(setAlias)} />
+      <SettingField icon="server.rack" color="systemBlue" prompt="http://192.168.1.1:8080" value={url} onChanged={handleFieldChange(setUrl)} />
+      <SettingField icon="person.fill" color="systemGreen" prompt="用户名" value={username} onChanged={handleFieldChange(setUsername)} />
+      <SecureSettingField icon="lock.fill" color="systemOrange" prompt="密码" value={password} onChanged={handleFieldChange(setPassword)} />
+
+      <HStack spacing={8} alignment="center">
+        <StatusBadge saved={saved} hasChanges={hasChanges} isConfigured={isConfigured} onSave={handleSave} />
+        <Button buttonStyle="plain" action={onReset}>
+          <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background="systemGray" clipShape={{ type: 'rect', cornerRadius: 6 }}>
+            <Image systemName="arrow.counterclockwise" foregroundStyle="white" font={12} />
+            <Text font={13} foregroundStyle="white" fontWeight="medium">重置</Text>
+          </HStack>
+        </Button>
+      </HStack>
+    </VStack>
+  );
+}
 
 const ClientIcon = ({ type, size = 16 }: { type: ClientType; size?: number }) => {
   const path = getIconPath(type);

@@ -9,6 +9,8 @@ export const SwitchClientIntent = AppIntentManager.register({
   perform: async (intent: { clientType: ClientType; clientIndex: number }) => {
     const { clientType, clientIndex } = intent;
     const currentConfig = Storage.get<ConfigData>(STORAGE_KEY);
+    
+    // 保存新配置
     Storage.set<ConfigData>(STORAGE_KEY, {
       ...currentConfig,
       url: currentConfig?.url || '',
@@ -18,7 +20,12 @@ export const SwitchClientIntent = AppIntentManager.register({
       clientType,
       clientIndex
     });
-    await Widget.reloadAll();
-    return {};
+    
+    // 返回成功标识，AppIntent 会自动触发小组件刷新
+    return {
+      success: true,
+      clientType,
+      clientIndex
+    };
   }
 })

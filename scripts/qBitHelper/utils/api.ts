@@ -9,17 +9,10 @@ export { fetchTrData, TR_SESSION_KEY } from './tr';
 
 // Unified data fetch function that works with both qBittorrent and Transmission
 export const fetchData = async (config: ConfigData): Promise<ClientData | null> => {
-  if (config.clientType === 'tr') {
-    return fetchTrData(config);
-  }
-  return fetchQbData(config);
+  return config.clientType === 'tr' ? fetchTrData(config) : fetchQbData(config);
 };
 
 // Clear session for the current client type
 export const clearSession = (clientType?: 'qb' | 'tr') => {
-  if (clientType === 'tr') {
-    clearTrSession();
-  } else {
-    clearQbSession();
-  }
+  clientType === 'tr' ? clearTrSession() : clearQbSession();
 };
