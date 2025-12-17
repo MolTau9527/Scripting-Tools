@@ -3,6 +3,7 @@ export interface Plugin {
   name: string
   description: string
   icon: string
+  symbol?: string
   author: string
   url: string
   updateTime: string

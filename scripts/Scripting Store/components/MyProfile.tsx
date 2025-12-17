@@ -99,17 +99,17 @@ export const MyProfile = ({ plugins, onRefresh, themeMode, onDetail, onInstall }
             {showSettings && (
               <VStack padding={12} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 8 }} spacing={12}>
                 <VStack alignment="leading" spacing={4}>
-                  <Text font={13} foregroundStyle={actualTheme === 'dark' ? '#ffffff' : colors.textSecondary}>作者名</Text>
+                  <Text font={14} fontWeight="medium" foregroundStyle={actualTheme === 'dark' ? '#ffffff' : colors.textPrimary}>作者名</Text>
                   <TextField title="" value={settings.authorName} prompt="输入作者名..." onChanged={(value) => { const newSettings = saveUserSettings({ authorName: value }); setSettings(newSettings) }} foregroundStyle={colors.textPrimary} />
                 </VStack>
 
                 <VStack alignment="leading" spacing={4}>
-                  <Text font={13} foregroundStyle={actualTheme === 'dark' ? '#ffffff' : colors.textSecondary}>仓库地址</Text>
+                  <Text font={14} fontWeight="medium" foregroundStyle={actualTheme === 'dark' ? '#ffffff' : colors.textPrimary}>仓库地址</Text>
                   <TextField title="" value={settings.repoUrl} prompt="输入 GitHub 仓库地址..." onChanged={(value) => { const newSettings = saveUserSettings({ repoUrl: value }); setSettings(newSettings) }} textInputAutocapitalization="never" autocorrectionDisabled foregroundStyle={colors.textPrimary} />
                 </VStack>
 
                 <HStack alignment="center">
-                  <Text font={13} foregroundStyle={actualTheme === 'dark' ? '#ffffff' : colors.textSecondary}>发布时自动填写作者名</Text>
+                  <Text font={14} fontWeight="medium" foregroundStyle={actualTheme === 'dark' ? '#ffffff' : colors.textPrimary}>发布时自动填写作者名</Text>
                   <Spacer />
                   <Toggle title="" value={settings.applyAuthorToPublish} onChanged={(value) => { const newSettings = saveUserSettings({ applyAuthorToPublish: value }); setSettings(newSettings) }} />
                 </HStack>

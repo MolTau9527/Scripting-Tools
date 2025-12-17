@@ -32,7 +32,7 @@ function parseAuthors(author: string): string[] {
 export const PluginDetail = ({ plugin, onInstall, themeMode, plugins = [] }: PluginDetailProps) => {
   const dismiss = Navigation.useDismiss()
   const colors = getThemeColors(themeMode)
-  const isBase64Icon = plugin.icon?.startsWith('data:image/')
+  const hasIcon = !!plugin.icon
   const authorNames = parseAuthors(plugin.author || '脚本作者')
 
   const showAuthorProfile = async (authorName: string) => {
@@ -59,11 +59,25 @@ export const PluginDetail = ({ plugin, onInstall, themeMode, plugins = [] }: Plu
       <ScrollView>
         <VStack padding={16} spacing={16}>
           <VStack padding={20} background={colors.cardBackground} clipShape={{ type: 'rect', cornerRadius: 16 }} spacing={12}>
-            {isBase64Icon ? (
-              <Image imageUrl={plugin.icon} resizable frame={{ width: 80, height: 80 }} clipShape={{ type: 'rect', cornerRadius: 16 }} />
+            {plugin.symbol ? (
+              <VStack frame={{ width: 80, height: 80 }} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 16 }}>
+                <Image systemName={plugin.symbol} font={48} foregroundStyle={colors.textPrimary} />
+              </VStack>
+            ) : hasIcon ? (
+              <Image
+                imageUrl={plugin.icon}
+                resizable
+                frame={{ width: 80, height: 80 }}
+                clipShape={{ type: 'rect', cornerRadius: 16 }}
+                placeholder={
+                  <VStack frame={{ width: 80, height: 80 }} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 16 }}>
+                    <Text font={40}>📦</Text>
+                  </VStack>
+                }
+              />
             ) : (
               <VStack frame={{ width: 80, height: 80 }} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 16 }}>
-                <Text font={40}>{plugin.icon || '📦'}</Text>
+                <Text font={40}>📦</Text>
               </VStack>
             )}
 

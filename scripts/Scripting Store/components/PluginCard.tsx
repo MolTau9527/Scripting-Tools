@@ -18,18 +18,31 @@ function parseAuthor(author: string): string[] {
 
 export const PluginCard = ({ plugin, onInstall, onDetail, themeMode, onFollowChange }: PluginCardProps) => {
   const authorNames = parseAuthor(plugin.author || '脚本作者')
-  const isBase64Icon = plugin.icon?.startsWith('data:image/')
   const colors = getThemeColors(themeMode)
   const isFollowed = isFollowingPlugin(String(plugin.id))
 
   return (
     <VStack padding={16} background={colors.cardBackground} clipShape={{ type: 'rect', cornerRadius: 12 }} frame={{ maxWidth: 'infinity' }} alignment="leading" onTapGesture={() => onDetail(plugin)}>
       <HStack alignment="center" spacing={12} frame={{ maxWidth: 'infinity' }}>
-        {isBase64Icon ? (
-          <Image imageUrl={plugin.icon} resizable frame={{ width: 48, height: 48 }} clipShape={{ type: 'rect', cornerRadius: 10 }} />
+        {plugin.symbol ? (
+          <VStack frame={{ width: 48, height: 48 }} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 10 }}>
+            <Image systemName={plugin.symbol} font={32} foregroundStyle={colors.textPrimary} />
+          </VStack>
+        ) : plugin.icon ? (
+          <Image
+            imageUrl={plugin.icon}
+            resizable
+            frame={{ width: 48, height: 48 }}
+            clipShape={{ type: 'rect', cornerRadius: 10 }}
+            placeholder={
+              <VStack frame={{ width: 48, height: 48 }} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 10 }}>
+                <Text font={24}>📦</Text>
+              </VStack>
+            }
+          />
         ) : (
           <VStack frame={{ width: 48, height: 48 }} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 10 }}>
-            <Text font={24}>{plugin.icon || '📦'}</Text>
+            <Text font={24}>📦</Text>
           </VStack>
         )}
 

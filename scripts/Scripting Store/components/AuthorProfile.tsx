@@ -48,11 +48,25 @@ export const AuthorProfile = ({ authorName, plugins, onDetail, onInstall, themeM
                     spacing={12}
                     onTapGesture={() => onDetail(plugin)}
                   >
-                    {plugin.icon?.startsWith('data:') || plugin.icon?.startsWith('http') ? (
-                      <Image imageUrl={plugin.icon} resizable frame={{ width: 44, height: 44 }} clipShape={{ type: 'rect', cornerRadius: 10 }} />
+                    {plugin.symbol ? (
+                      <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
+                        <Image systemName={plugin.symbol} font={28} foregroundStyle={colors.textPrimary} />
+                      </VStack>
+                    ) : plugin.icon ? (
+                      <Image
+                        imageUrl={plugin.icon}
+                        resizable
+                        frame={{ width: 44, height: 44 }}
+                        clipShape={{ type: 'rect', cornerRadius: 10 }}
+                        placeholder={
+                          <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
+                            <Text font={24}>📦</Text>
+                          </VStack>
+                        }
+                      />
                     ) : (
                       <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
-                        <Text font={24}>{plugin.icon || '📦'}</Text>
+                        <Text font={24}>📦</Text>
                       </VStack>
                     )}
                     <VStack alignment="leading" spacing={2} frame={{ maxWidth: 'infinity' }}>

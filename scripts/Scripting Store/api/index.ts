@@ -3,7 +3,7 @@ import type { ApiResponse, Plugin, SiteConfig, SubmitPluginData } from '../types
 
 const BASE_URL = 'https://scripting.oraclecloud.us.kg'
 
-async function request<T>(path: string, options?: RequestInit, fallbackError = '请求失败'): Promise<ApiResponse<T>> {
+async function request<T>(path: string, options?: { method?: string; headers?: Record<string, string>; body?: string }, fallbackError = '请求失败'): Promise<ApiResponse<T>> {
   const response = await fetch(`${BASE_URL}${path}`, options)
   if (!response.ok) throw new Error('网络请求失败')
   const data = (await response.json()) as ApiResponse<T>

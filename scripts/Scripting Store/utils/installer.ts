@@ -37,17 +37,18 @@ export async function installPlugin(plugin: Plugin): Promise<void> {
   // scripting:// 协议
   if (targetUrl.startsWith('scripting://')) {
     const urls = parseUrlsFromParam(targetUrl)
-    if (urls) return openImportUrl(urls)
-    return Safari.openURL(targetUrl)
+    if (urls) { await openImportUrl(urls); return }
+    Safari.openURL(targetUrl)
+    return
   }
 
   // 非可导入链接直接打开
-  if (!isImportableUrl(targetUrl)) return Safari.openURL(targetUrl)
+  if (!isImportableUrl(targetUrl)) { Safari.openURL(targetUrl); return }
 
   // 封装并安装
   try {
     await openImportUrl([targetUrl])
   } catch {
-    await Safari.openURL(targetUrl)
+    Safari.openURL(targetUrl)
   }
 }

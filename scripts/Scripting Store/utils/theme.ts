@@ -1,7 +1,7 @@
 import { gradient } from 'scripting'
 
 export type ThemeMode = 'light' | 'dark' | 'system'
-export type ThemeColors = typeof lightColors
+export type ThemeColors = typeof lightColors | typeof darkColors
 
 const THEME_STORAGE_KEY = 'scripting_store_theme'
 
