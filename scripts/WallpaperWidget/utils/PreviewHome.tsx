@@ -11,6 +11,7 @@ import {
 } from "scripting";
 import { fetchACGImage } from "./api";
 import { loadConfig } from "./storage";
+import { loadAndCacheImage } from "./imageCache";
 import { generateRandomId } from "./utils";
 
 interface PreviewHomeProps {
@@ -19,7 +20,7 @@ interface PreviewHomeProps {
 }
 
 export function PreviewHome({ onClose, onSettings }: PreviewHomeProps) {
-  const photoUrl = useObservable<string>("");
+  const photoFilePath = useObservable<string>("");
   const isLoading = useObservable<boolean>(true);
   const currentId = useObservable<number>(0);
   const hasError = useObservable<boolean>(false);
@@ -44,11 +45,18 @@ export function PreviewHome({ onClose, onSettings }: PreviewHomeProps) {
 
       currentId.setValue(id);
       const url = await fetchACGImage(id);
-      photoUrl.setValue(url);
+
+      // 下载图片到本地（会自动清理旧缓存）
+      const filePath = await loadAndCacheImage(url);
+      if (filePath) {
+        photoFilePath.setValue(filePath);
+      } else {
+        throw new Error("保存图片失败");
+      }
     } catch (err) {
       console.error("加载图片失败:", err);
       hasError.setValue(true);
-      photoUrl.setValue("");
+      photoFilePath.setValue("");
     } finally {
       isLoading.setValue(false);
     }
@@ -165,7 +173,7 @@ export function PreviewHome({ onClose, onSettings }: PreviewHomeProps) {
             ) : (
               <VStack spacing={0}>
                 <Image
-                  imageUrl={photoUrl.value}
+                  filePath={photoFilePath.value}
                   resizable
                   aspectRatio={{ value: null, contentMode: "fit" }}
                   frame={{ maxHeight: 400 }}
@@ -183,7 +191,7 @@ export function PreviewHome({ onClose, onSettings }: PreviewHomeProps) {
           )}
 
           {/* 小组件尺寸预览 */}
-          {!isLoading.value && !hasError.value && !!photoUrl.value && (
+          {!isLoading.value && !hasError.value && !!photoFilePath.value && (
             <VStack spacing={16} alignment="center">
               <Text
                 font={13}
@@ -196,7 +204,7 @@ export function PreviewHome({ onClose, onSettings }: PreviewHomeProps) {
                 {/* 小尺寸 */}
                 <VStack spacing={8} alignment="center">
                   <Image
-                    imageUrl={photoUrl.value}
+                    filePath={photoFilePath.value}
                     resizable
                     aspectRatio={{ value: 1, contentMode: "fill" }}
                     frame={{ width: 80, height: 80 }}
@@ -210,7 +218,7 @@ export function PreviewHome({ onClose, onSettings }: PreviewHomeProps) {
                 {/* 中尺寸 */}
                 <VStack spacing={8} alignment="center">
                   <Image
-                    imageUrl={photoUrl.value}
+                    filePath={photoFilePath.value}
                     resizable
                     aspectRatio={{ value: 2, contentMode: "fill" }}
                     frame={{ width: 160, height: 80 }}
@@ -225,7 +233,7 @@ export function PreviewHome({ onClose, onSettings }: PreviewHomeProps) {
               {/* 大尺寸 */}
               <VStack spacing={8} alignment="center">
                 <Image
-                  imageUrl={photoUrl.value}
+                  filePath={photoFilePath.value}
                   resizable
                   aspectRatio={{ value: 2, contentMode: "fill" }}
                   frame={{ width: 160, height: 160 }}

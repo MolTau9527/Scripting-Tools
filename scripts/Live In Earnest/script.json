@@ -1,0 +1,41 @@
+{
+  "iconImage" : null,
+  "runInApp" : false,
+  "icon" : "heart.fill",
+  "version" : "1.0.0",
+  "localizedNames" : {
+    "de" : "",
+    "it" : "",
+    "ja" : "",
+    "zh" : "活着打卡",
+    "fr" : "",
+    "en" : "",
+    "ru" : "",
+    "es" : "",
+    "pt" : ""
+  },
+  "color" : "rgba(16, 185, 129, 1)",
+  "name" : "Live In Earnest",
+  "localizedDescriptions" : {
+    "de" : "",
+    "it" : "",
+    "ja" : "",
+    "zh" : "每天打卡，证明你还活着",
+    "fr" : "",
+    "en" : "",
+    "ru" : "",
+    "es" : "",
+    "pt" : ""
+  },
+  "contributors" : [
+
+  ],
+  "description" : "Daily check-in to prove you're alive",
+  "author" : null,
+  "remoteResource" : null,
+  "widget" : {
+    "file" : "widget.tsx",
+    "supportedFamilies" : ["systemSmall", "accessoryCircular"]
+  },
+  "appIntents" : "app_intents.tsx"
+}

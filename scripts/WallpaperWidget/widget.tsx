@@ -1,16 +1,20 @@
 import { Image, ZStack, Text, VStack, Widget } from "scripting";
 import { fetchACGImage } from "./utils/api";
 import { loadConfig } from "./utils/storage";
+import { loadAndCacheImage } from "./utils/imageCache";
 import { DEFAULT_REFRESH_SECONDS, MIN_REFRESH_INTERVAL } from "./utils/utils";
 import { ACGConfig } from "./utils/types";
 
 async function main() {
   const config = loadConfig();
-  let imageUrl = "";
+  let imageFilePath: string | null = null;
 
   try {
     const imageId = config?.imageId ? parseInt(config.imageId, 10) : 0;
-    imageUrl = await fetchACGImage(imageId || Math.floor(Math.random() * 9999) + 1);
+    const imageUrl = await fetchACGImage(imageId || Math.floor(Math.random() * 9999) + 1);
+
+    // 下载图片并保存到本地（会自动清理旧缓存）
+    imageFilePath = await loadAndCacheImage(imageUrl);
   } catch (error) {
     console.error("加载ACG图片失败:", error);
   }
@@ -20,9 +24,9 @@ async function main() {
 
   Widget.present(
     <ZStack>
-      {imageUrl ? (
+      {imageFilePath ? (
         <Image
-          imageUrl={imageUrl}
+          filePath={imageFilePath}
           resizable
           aspectRatio={{ value: null, contentMode: "fill" }}
         />
