@@ -11,6 +11,8 @@ interface MyProfileProps {
   onInstall: (plugin: Plugin) => void
 }
 
+const isImageUrl = (icon: string) => icon.startsWith('http') || icon.startsWith('data:')
+
 export const MyProfile = ({ plugins, onRefresh, themeMode, onDetail, onInstall }: MyProfileProps) => {
   const dismiss = Navigation.useDismiss()
   const actualTheme = getActualThemeMode(themeMode)
@@ -146,22 +148,24 @@ export const MyProfile = ({ plugins, onRefresh, themeMode, onDetail, onInstall }
             ) : (
               <VStack spacing={8}>
                 {myPlugins.map((plugin, index) => (
-                  <HStack key={plugin.id || index} padding={12} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 8 }} spacing={12} onTapGesture={() => onDetail(plugin)}>
-                    {plugin.symbol ? (
-                      <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
-                        <Image systemName={plugin.symbol} font={24} foregroundStyle={colors.textPrimary} />
+                  <HStack key={plugin.id || index} padding={12} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 8 }} spacing={12}>
+                    <HStack spacing={12} frame={{ maxWidth: 'infinity', alignment: 'leading' }} onTapGesture={() => onDetail(plugin)}>
+                      {plugin.symbol ? (
+                        <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
+                          <Image systemName={plugin.symbol} font={24} foregroundStyle={colors.textPrimary} />
+                        </VStack>
+                      ) : plugin.icon && isImageUrl(plugin.icon) ? (
+                        <Image imageUrl={plugin.icon} resizable frame={{ width: 44, height: 44 }} clipShape={{ type: 'rect', cornerRadius: 10 }} />
+                      ) : (
+                        <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }} alignment="center">
+                          <Text font={24}>{plugin.icon || '📦'}</Text>
+                        </VStack>
+                      )}
+                      <VStack alignment="leading" spacing={2} frame={{ maxWidth: 'infinity', alignment: 'leading' }}>
+                        <Text font={15} fontWeight="medium" foregroundStyle={colors.textPrimary} lineLimit={1} frame={{ maxWidth: 'infinity', alignment: 'leading' }}>{plugin.name}</Text>
+                        <Text font={12} foregroundStyle={colors.textSecondary} lineLimit={1} frame={{ maxWidth: 'infinity', alignment: 'leading' }}>{plugin.description}</Text>
                       </VStack>
-                    ) : plugin.icon && (plugin.icon.startsWith('data:') || plugin.icon.startsWith('http')) ? (
-                      <Image imageUrl={plugin.icon} resizable frame={{ width: 44, height: 44 }} clipShape={{ type: 'rect', cornerRadius: 10 }} />
-                    ) : (
-                      <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
-                        <Text font={24}>{plugin.icon || '📦'}</Text>
-                      </VStack>
-                    )}
-                    <VStack alignment="leading" spacing={2} frame={{ maxWidth: 'infinity', alignment: 'leading' }}>
-                      <Text font={15} fontWeight="medium" foregroundStyle={colors.textPrimary} lineLimit={1} frame={{ maxWidth: 'infinity', alignment: 'leading' }}>{plugin.name}</Text>
-                      <Text font={12} foregroundStyle={colors.textSecondary} lineLimit={1} frame={{ maxWidth: 'infinity', alignment: 'leading' }}>{plugin.description}</Text>
-                    </VStack>
+                    </HStack>
                     <Button action={() => onInstall(plugin)}>
                       <Text font={13} fontWeight="medium" foregroundStyle="#ffffff" padding={{ leading: 12, trailing: 12, top: 6, bottom: 6 }} background={colors.buttonPrimary} clipShape={{ type: 'rect', cornerRadius: 12 }}>安装</Text>
                     </Button>
@@ -182,22 +186,24 @@ export const MyProfile = ({ plugins, onRefresh, themeMode, onDetail, onInstall }
             ) : (
               <VStack spacing={8}>
                 {followedPlugins.map((plugin, index) => (
-                  <HStack key={plugin.id || index} padding={12} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 8 }} spacing={12} onTapGesture={() => onDetail(plugin)}>
-                    {plugin.symbol ? (
-                      <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
-                        <Image systemName={plugin.symbol} font={24} foregroundStyle={colors.textPrimary} />
+                  <HStack key={plugin.id || index} padding={12} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 8 }} spacing={12}>
+                    <HStack spacing={12} frame={{ maxWidth: 'infinity', alignment: 'leading' }} onTapGesture={() => onDetail(plugin)}>
+                      {plugin.symbol ? (
+                        <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
+                          <Image systemName={plugin.symbol} font={24} foregroundStyle={colors.textPrimary} />
+                        </VStack>
+                      ) : plugin.icon && isImageUrl(plugin.icon) ? (
+                        <Image imageUrl={plugin.icon} resizable frame={{ width: 44, height: 44 }} clipShape={{ type: 'rect', cornerRadius: 10 }} />
+                      ) : (
+                        <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }} alignment="center">
+                          <Text font={24}>{plugin.icon || '📦'}</Text>
+                        </VStack>
+                      )}
+                      <VStack alignment="leading" spacing={2} frame={{ maxWidth: 'infinity', alignment: 'leading' }}>
+                        <Text font={15} fontWeight="medium" foregroundStyle={colors.textPrimary} lineLimit={1} frame={{ maxWidth: 'infinity', alignment: 'leading' }}>{plugin.name}</Text>
+                        <Text font={12} foregroundStyle={colors.textSecondary} lineLimit={1} frame={{ maxWidth: 'infinity', alignment: 'leading' }}>{plugin.author}</Text>
                       </VStack>
-                    ) : plugin.icon && (plugin.icon.startsWith('data:') || plugin.icon.startsWith('http')) ? (
-                      <Image imageUrl={plugin.icon} resizable frame={{ width: 44, height: 44 }} clipShape={{ type: 'rect', cornerRadius: 10 }} />
-                    ) : (
-                      <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
-                        <Text font={24}>{plugin.icon || '📦'}</Text>
-                      </VStack>
-                    )}
-                    <VStack alignment="leading" spacing={2} frame={{ maxWidth: 'infinity', alignment: 'leading' }}>
-                      <Text font={15} fontWeight="medium" foregroundStyle={colors.textPrimary} lineLimit={1} frame={{ maxWidth: 'infinity', alignment: 'leading' }}>{plugin.name}</Text>
-                      <Text font={12} foregroundStyle={colors.textSecondary} lineLimit={1} frame={{ maxWidth: 'infinity', alignment: 'leading' }}>{plugin.author}</Text>
-                    </VStack>
+                    </HStack>
                     <HStack spacing={8}>
                       <Button action={() => { toggleFollowPlugin(String(plugin.id)); setSettings(getUserSettings()) }}>
                         <Image systemName="star.fill" foregroundStyle="#fbbf24" frame={{ width: 22, height: 22 }} />

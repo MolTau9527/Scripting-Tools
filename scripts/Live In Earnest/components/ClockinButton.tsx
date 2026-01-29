@@ -1,6 +1,6 @@
 import {
   VStack, ZStack, Text, Button, Image, Circle, Color,
-  useState, useMemo, useObservable
+  useState, useMemo, useObservable, useEffect
 } from "scripting"
 
 interface ClockinButtonProps {
@@ -24,14 +24,14 @@ export function ClockinButton({ todayCheckedIn, colors, onClockin }: ClockinButt
   const plusOneOffsetY = useObservable(0)
 
   // 启动脉冲动画
-  useState(() => {
+  useEffect(() => {
     pulseScale1.setValue(1.5)
     pulseOpacity1.setValue(0)
     setTimeout(() => {
       pulseScale2.setValue(1.5)
       pulseOpacity2.setValue(0)
     }, 500)
-  })
+  }, [])
 
   const pulseAnimation1 = useMemo(() => ({
     scaleEffect: pulseScale1.value,

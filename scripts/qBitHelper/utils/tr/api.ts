@@ -1,5 +1,5 @@
 import { fetch } from "scripting";
-import { ConfigData } from '../../pages/SettingsPage';
+import { ConfigData } from '../public/storage';
 import { ClientData } from '../public/types';
 
 export const TR_SESSION_KEY = 'trSession';

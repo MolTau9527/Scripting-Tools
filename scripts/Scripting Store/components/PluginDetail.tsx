@@ -24,9 +24,11 @@ function getOriginalUrl(url: string): string {
   return url
 }
 
+const isImageUrl = (icon: string) => icon.startsWith('http') || icon.startsWith('data:')
+
 function parseAuthors(author: string): string[] {
   const match = author.match(/^(.*?)\s*\(https?:\/\/.*\)$/)
-  return (match ? match[1] : author).split(/,\s*/)
+  return (match ? match[1] : author).split(/,\s*/).filter(Boolean)
 }
 
 export const PluginDetail = ({ plugin, onInstall, themeMode, plugins = [] }: PluginDetailProps) => {
@@ -63,7 +65,7 @@ export const PluginDetail = ({ plugin, onInstall, themeMode, plugins = [] }: Plu
               <VStack frame={{ width: 80, height: 80 }} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 16 }}>
                 <Image systemName={plugin.symbol} font={48} foregroundStyle={colors.textPrimary} />
               </VStack>
-            ) : hasIcon ? (
+            ) : hasIcon && isImageUrl(plugin.icon) ? (
               <Image
                 imageUrl={plugin.icon}
                 resizable
@@ -76,8 +78,8 @@ export const PluginDetail = ({ plugin, onInstall, themeMode, plugins = [] }: Plu
                 }
               />
             ) : (
-              <VStack frame={{ width: 80, height: 80 }} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 16 }}>
-                <Text font={40}>📦</Text>
+              <VStack frame={{ width: 80, height: 80 }} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 16 }} alignment="center">
+                <Text font={40}>{plugin.icon || '📦'}</Text>
               </VStack>
             )}
 

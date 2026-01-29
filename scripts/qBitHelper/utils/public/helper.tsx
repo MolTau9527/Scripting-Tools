@@ -1,7 +1,7 @@
 import { useObservable, useEffect, VStack, HStack, Text, List, Section, NavigationStack, Navigation, Widget, Image, Spacer, TapGesture, Color } from "scripting";
-import { SettingsPage, ConfigData } from '../../pages/SettingsPage';
+import { SettingsPage } from '../../pages/SettingsPage';
 import { ClientData, HistoryPoint } from './types';
-import { STORAGE_KEY, HISTORY_KEY, updateHistory } from './storage';
+import { updateHistory, getConfig, setConfig, getQbitHelperData, resetAllConfig, getCacheKey, DEFAULT_REFRESH_MINUTES, ConfigData } from './storage';
 import { fetchData, clearSession } from '../api';
 
 const isValidConfig = (cfg: ConfigData | null): cfg is ConfigData =>
@@ -54,10 +54,7 @@ export default function Helper() {
       actions: [{ label: "确认", destructive: true }]
     });
     if (selectedIndex === 0) {
-      Storage.remove(STORAGE_KEY);
-      Storage.remove(HISTORY_KEY);
-      Storage.remove('qbClientConfig');
-      Storage.remove('trClientConfig');
+      resetAllConfig();
       clearSession('qb');
       clearSession('tr');
       config.setValue(null);
@@ -68,10 +65,9 @@ export default function Helper() {
   };
 
   useEffect(() => {
-    const savedConfig = Storage.get<ConfigData>(STORAGE_KEY);
-    const savedHistory = Storage.get<HistoryPoint[]>(HISTORY_KEY);
-    if (isValidConfig(savedConfig)) config.setValue(savedConfig);
-    if (savedHistory) history.setValue(savedHistory);
+    const data = getQbitHelperData();
+    if (isValidConfig(data.config)) config.setValue(data.config);
+    if (data.history) history.setValue(data.history);
   }, []);
 
   const loadData = async () => {
@@ -82,7 +78,8 @@ export default function Helper() {
     isLoading.setValue(false);
     if (newData) {
       data.setValue(newData);
-      history.setValue(updateHistory(newData));
+      const clientKey = getCacheKey(config.value.clientType ?? 'qb', config.value.clientIndex ?? 0);
+      history.setValue(updateHistory(newData, clientKey));
     } else {
       error.setValue("获取数据失败，请检查配置");
     }
@@ -91,7 +88,7 @@ export default function Helper() {
   useEffect(() => {
     if (!config.value) return;
     loadData();
-    const refreshMinutes = config.value.refreshMinutes ?? 1;
+    const refreshMinutes = config.value.refreshMinutes ?? DEFAULT_REFRESH_MINUTES;
     if (refreshMinutes <= 0) return;
     let timeoutId: any;
     const scheduleNext = () => {
@@ -104,7 +101,7 @@ export default function Helper() {
   const handleConfigSaved = (newConfig: ConfigData) => {
     if (!isValidConfig(newConfig)) { error.setValue("请填写完整的配置信息"); return; }
     clearSession(newConfig.clientType);
-    Storage.set(STORAGE_KEY, newConfig);
+    setConfig(newConfig);
     config.setValue(newConfig);
     showSettings.setValue(false);
   };

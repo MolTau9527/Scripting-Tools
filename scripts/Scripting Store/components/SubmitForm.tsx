@@ -126,10 +126,10 @@ export const SubmitForm = ({ onSuccess, themeMode }: SubmitFormProps) => {
               <VStack alignment="leading" spacing={8}>
                 <Text font={14} fontWeight="medium" foregroundStyle={labelColor}>图标 URL</Text>
                 <ZStack alignment="leading">
-                  {!icon && <Text font={14} foregroundStyle={placeholderColor} padding={{ leading: 4 }}>请输入图标svg链接</Text>}
-                  <TextField title="" value={icon} onChanged={setIcon} textInputAutocapitalization="never" autocorrectionDisabled foregroundStyle={colors.textPrimary} />
-                </ZStack>
-              </VStack>
+                {!icon && <Text font={14} foregroundStyle={placeholderColor} padding={{ leading: 4 }}>请输入图标 URL 或 emoji</Text>}
+                <TextField title="" value={icon} onChanged={setIcon} textInputAutocapitalization="never" autocorrectionDisabled foregroundStyle={colors.textPrimary} />
+              </ZStack>
+            </VStack>
             ) : (
               <VStack alignment="leading" spacing={8}>
                 <Text font={14} fontWeight="medium" foregroundStyle={labelColor}>Symbol</Text>
@@ -182,7 +182,7 @@ export const SubmitForm = ({ onSuccess, themeMode }: SubmitFormProps) => {
               <Image systemName="info.circle.fill" foregroundStyle={themedColors.tipIcon(themeMode)} frame={{ width: 16, height: 16 }} />
               <Text font={14} fontWeight="medium" foregroundStyle={themedColors.tipText(themeMode)}>提示</Text>
             </HStack>
-            <Text font={13} foregroundStyle={themedColors.tipText(themeMode)}>插件链接支持 .scripting、.js、.zip 文件或 GitHub 链接。发布后将显示在插件中心供其他用户下载。</Text>
+            <Text font={13} foregroundStyle={themedColors.tipText(themeMode)}>插件链接支持 .scripting、.js、.zip 文件或 GitHub 链接。图标支持 URL、emoji 或 SF Symbol。发布后将显示在插件中心供其他用户下载。</Text>
           </VStack>
         </VStack>
       </ScrollView>

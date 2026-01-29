@@ -1,10 +1,9 @@
 import { VStack, HStack, Text, Widget, Button, Image, Spacer } from "scripting";
-import { Display, ConfigData, STORAGE_KEY, DEFAULT_REFRESH_MINUTES, updateHistory, getCachedClientData, setCachedClientData } from './utils/public';
+import { Display, ConfigData, DEFAULT_REFRESH_MINUTES, updateHistory, getCachedClientData, setCachedClientData, getConfig, getMultiClientConfig, getCacheKey } from './utils/public';
 import { fetchData } from './utils/api';
 import { SwitchClientIntent } from './app_intents';
 import { ClientType, ClientConfig, MultiClientConfig, ClientData } from './utils/public/types';
 
-const MULTI_CLIENT_KEY = 'multiClientConfig';
 const getIconPath = (type: ClientType) => `${FileManager.documentsDirectory}/qbit_${type}_icon.png`;
 
 interface VisibleClient {
@@ -32,9 +31,7 @@ function getVisibleClients(multiConfig: MultiClientConfig | null): VisibleClient
 }
 
 async function prefetchClientData(client: VisibleClient, config: ConfigData) {
-  const cached = getCachedClientData(client.type, client.index);
-  if (cached) return;
-
+  // 始终预取数据，确保切换时有最新缓存可用
   try {
     const data = await fetchData({
       ...config,
@@ -80,7 +77,7 @@ function SwitchButtons({ visibleClients, currentClient }: { visibleClients: Visi
     <HStack spacing={8} alignment="center">
       {visibleClients.map((client) => {
         const isActive = client.type === currentClient.type && client.index === currentClient.index;
-        
+
         if (isActive) {
           return (
             <VStack key={`${client.type}-${client.index}`} spacing={2} alignment="center">
@@ -89,7 +86,7 @@ function SwitchButtons({ visibleClients, currentClient }: { visibleClients: Visi
             </VStack>
           );
         }
-        
+
         return (
           <Button
             key={`${client.type}-${client.index}`}
@@ -119,39 +116,39 @@ function ErrorWidget({ message, visibleClients, currentClient }: { message: stri
 }
 
 async function fetchCurrentClientData(client: VisibleClient, config: ConfigData): Promise<ClientData | null> {
+  // 先检查是否有缓存
   const cached = getCachedClientData(client.type, client.index);
-  
-  if (cached) {
-    // 后台更新缓存
-    fetchData({
+
+  // 尝试获取最新数据
+  try {
+    const freshData = await fetchData({
       ...config,
       url: client.config.url,
       username: client.config.username,
       password: client.config.password,
       clientType: client.type
-    }).then(freshData => {
-      if (freshData) setCachedClientData(client.type, client.index, freshData);
-    }).catch(() => {});
-    
+    });
+
+    if (freshData) {
+      setCachedClientData(client.type, client.index, freshData);
+      return freshData;
+    }
+  } catch (e) {
+    console.log('获取数据失败，尝试使用缓存');
+  }
+
+  // 请求失败或无数据时，使用缓存作为降级方案
+  if (cached) {
+    console.log('使用缓存数据');
     return cached;
   }
-  
-  // 没有缓存，获取新数据
-  const freshData = await fetchData({
-    ...config,
-    url: client.config.url,
-    username: client.config.username,
-    password: client.config.password,
-    clientType: client.type
-  });
-  
-  if (freshData) setCachedClientData(client.type, client.index, freshData);
-  return freshData;
+
+  return null;
 }
 
 async function main() {
-  const config = Storage.get<ConfigData>(STORAGE_KEY);
-  const multiConfig = Storage.get<MultiClientConfig>(MULTI_CLIENT_KEY);
+  const config = getConfig();
+  const multiConfig = getMultiClientConfig();
   const visibleClients = getVisibleClients(multiConfig);
 
   if (visibleClients.length === 0) {
@@ -163,9 +160,17 @@ async function main() {
   const activeType = config?.clientType || 'qb';
   const activeIndex = config?.clientIndex ?? 0;
   const currentClient = visibleClients.find(c => c.type === activeType && c.index === activeIndex) || visibleClients[0];
+  const baseConfig: ConfigData = config ?? {
+    url: '',
+    username: '',
+    password: '',
+    refreshMinutes: DEFAULT_REFRESH_MINUTES,
+    clientType: currentClient.type,
+    clientIndex: currentClient.index
+  };
 
   // 获取当前客户端数据
-  const data = await fetchCurrentClientData(currentClient, config!);
+  const data = await fetchCurrentClientData(currentClient, baseConfig);
 
   // 预取其他客户端数据
   if (config) {
@@ -181,10 +186,10 @@ async function main() {
     return;
   }
 
-  const history = updateHistory(data);
+  const history = updateHistory(data, getCacheKey(currentClient.type, currentClient.index));
   const refreshMinutes = config?.refreshMinutes ?? DEFAULT_REFRESH_MINUTES;
-  const size: 'small' | 'medium' | 'large' = 
-    Widget.family === 'systemLarge' ? 'large' : 
+  const size: 'small' | 'medium' | 'large' =
+    Widget.family === 'systemLarge' ? 'large' :
     Widget.family === 'systemMedium' ? 'medium' : 'small';
 
   Widget.present(

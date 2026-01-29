@@ -459,18 +459,22 @@ function MainPage() {
 const { action, silent } = Script.queryParameters ?? {}
 const isSilent = silent === "true"
 
-switch (action) {
-  case "check":
-    checkAndNotify()
-    break
-  case "auto":
-    autoClockIn()
-    break
-  case "clockin":
-    handleWidgetClockin(action)
-    break
-  default:
-    checkAndNotify()
+async function runAction() {
+  switch (action) {
+    case "check":
+      await checkAndNotify()
+      break
+    case "auto":
+      autoClockIn()
+      break
+    case "clockin":
+      handleWidgetClockin(action)
+      break
+    default:
+      await checkAndNotify()
+  }
 }
+
+runAction()
 
 if (!isSilent) Navigation.present(<MainPage />)

@@ -1,4 +1,4 @@
-import { ConfigData } from '../pages/SettingsPage';
+import { ConfigData } from './public/storage';
 import { ClientData } from './public/types';
 import { fetchQbData, clearQbSession } from './qb';
 import { fetchTrData, clearTrSession } from './tr';

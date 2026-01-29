@@ -1,6 +1,26 @@
 import { Path } from "scripting";
 import { ACGConfig } from "./types";
 
+type Data = {
+  toRawString(encoding: string): string | null;
+};
+
+declare const Data: {
+  fromFile(path: string): Data | null;
+  fromRawString(content: string, encoding: string): Data | null;
+};
+
+declare const FileEntity: {
+  openNewForWriting(path: string): {
+    write(data: Data): void;
+    close(): void;
+  };
+};
+
+declare const FileManager: {
+  appGroupDocumentsDirectory: string;
+};
+
 const CONFIG_FILE = Path.join(
   FileManager.appGroupDocumentsDirectory, 
   "acg_widget_config.json"

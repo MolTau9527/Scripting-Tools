@@ -36,7 +36,11 @@ async function checkHealthAndNotify(now: number): Promise<CheckResult> {
   }
 
   // 检查是否超过24小时未打卡
-  if (data.lastTime && (now - data.lastTime) <= THRESHOLD_MS) {
+  if (!data.lastTime) {
+    return { sent: false, message: "无打卡记录" }
+  }
+
+  if ((now - data.lastTime) <= THRESHOLD_MS) {
     return { sent: false, message: "未超过24小时" }
   }
 

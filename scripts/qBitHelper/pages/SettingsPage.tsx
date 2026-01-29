@@ -1,14 +1,13 @@
 import { VStack, HStack, Text, TextField, SecureField, Button, useEffect, Picker, useState, useMemo, useCallback, List, Section, Widget, Image, Spacer, TapGesture, Color } from "scripting";
 import { ClientType, ClientConfig, MultiClientConfig } from '../utils/public/types';
-
-export interface ConfigData {
-  url: string;
-  username: string;
-  password: string;
-  refreshMinutes?: number;
-  clientType?: ClientType;
-  clientIndex?: number;
-}
+import {
+  ConfigData,
+  CLIENT_COUNT,
+  getDefaultMultiConfig,
+  getMultiClientConfig,
+  setMultiClientConfig,
+  resetAllConfig
+} from '../utils/public/storage';
 
 interface SettingsPageProps {
   onConfigSaved: (config: ConfigData) => void;
@@ -17,34 +16,13 @@ interface SettingsPageProps {
   onReset?: () => void;
 }
 
-const DEFAULT_REFRESH = 0.5;
-const MULTI_CLIENT_KEY = 'multiClientConfig';
-const CLIENT_COUNT = 3;
+const DEFAULT_REFRESH = 5;
 const CLIENT_ICON_URLS = {
   qb: 'https://avatars.githubusercontent.com/u/2131270',
   tr: 'https://avatars.githubusercontent.com/u/223312'
 };
 
 type SystemColor = "systemBlue" | "systemGreen" | "systemOrange" | "systemPurple" | "systemGray" | "systemRed";
-
-const getDefaultMultiConfig = (): MultiClientConfig => ({
-  qb: Array(CLIENT_COUNT).fill(null),
-  tr: Array(CLIENT_COUNT).fill(null),
-  activeClient: { type: 'qb', index: 0 }
-});
-
-const loadMultiConfig = (): MultiClientConfig => {
-  const saved = Storage.get<MultiClientConfig>(MULTI_CLIENT_KEY);
-  if (!saved) return getDefaultMultiConfig();
-  
-  return {
-    qb: saved.qb?.length === CLIENT_COUNT ? saved.qb : Array(CLIENT_COUNT).fill(null).map((_, i) => saved.qb?.[i] || null),
-    tr: saved.tr?.length === CLIENT_COUNT ? saved.tr : Array(CLIENT_COUNT).fill(null).map((_, i) => saved.tr?.[i] || null),
-    activeClient: saved.activeClient || { type: 'qb', index: 0 }
-  };
-};
-
-const saveMultiConfig = (config: MultiClientConfig) => Storage.set(MULTI_CLIENT_KEY, config);
 
 const getIconPath = (type: ClientType) => `${FileManager.documentsDirectory}/qbit_${type}_icon.png`;
 
@@ -215,7 +193,7 @@ const ClientIcon = ({ type, size = 16 }: { type: ClientType; size?: number }) =>
 };
 
 export function SettingsPage({ onConfigSaved, initialConfig, onBack, onReset }: SettingsPageProps) {
-  const [multiConfig, setMultiConfig] = useState<MultiClientConfig>(loadMultiConfig);
+  const [multiConfig, setMultiConfigState] = useState<MultiClientConfig>(getMultiClientConfig);
   const [currentType, setCurrentType] = useState<ClientType>('qb');
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [refreshMinutes, setRefreshMinutes] = useState(initialConfig?.refreshMinutes ?? DEFAULT_REFRESH);
@@ -223,23 +201,24 @@ export function SettingsPage({ onConfigSaved, initialConfig, onBack, onReset }: 
   useEffect(() => { ensureIcons(); }, []);
 
   const handleUpdateClient = useCallback((type: ClientType, index: number, config: ClientConfig) => {
-    setMultiConfig(prev => {
+    setMultiConfigState(prev => {
       const newConfig = { ...prev };
       newConfig[type][index] = config;
-      saveMultiConfig(newConfig);
+      newConfig.activeClient = { type, index };
+      setMultiClientConfig(newConfig);
       Widget.reloadUserWidgets();
       return newConfig;
     });
   }, []);
 
   const handleResetClient = useCallback((type: ClientType, index: number) => {
-    setMultiConfig(prev => {
+    setMultiConfigState(prev => {
       const newConfig = { ...prev };
       newConfig[type][index] = null;
       if (newConfig.activeClient?.type === type && newConfig.activeClient?.index === index) {
         newConfig.activeClient = { type: 'qb', index: 0 };
       }
-      saveMultiConfig(newConfig);
+      setMultiClientConfig(newConfig);
       Widget.reloadUserWidgets();
       return newConfig;
     });
@@ -263,8 +242,8 @@ export function SettingsPage({ onConfigSaved, initialConfig, onBack, onReset }: 
 
   const handleResetAll = useCallback(() => {
     const newConfig = getDefaultMultiConfig();
-    setMultiConfig(newConfig);
-    saveMultiConfig(newConfig);
+    setMultiConfigState(newConfig);
+    resetAllConfig();
     onReset?.();
   }, [onReset]);
 
@@ -332,11 +311,11 @@ export function SettingsPage({ onConfigSaved, initialConfig, onBack, onReset }: 
     <HStack spacing={12} alignment="center">
       <Image systemName="clock.fill" foregroundStyle="systemPurple" font={18} />
       <Picker title="刷新间隔" pickerStyle="menu" value={refreshMinutes} onChanged={setRefreshMinutes} frame={{ maxWidth: "infinity" }}>
-        <Text tag={0}>不刷新</Text>
-        <Text tag={0.5}>30秒</Text>
-        <Text tag={1}>1分钟</Text>
-        <Text tag={2}>2分钟</Text>
-        <Text tag={5}>5分钟</Text>
+        <Text tag={0}>自动</Text>
+        <Text tag={5}>5 分钟</Text>
+        <Text tag={10}>10 分钟</Text>
+        <Text tag={15}>15 分钟</Text>
+        <Text tag={30}>30 分钟</Text>
       </Picker>
     </HStack>
   ), [refreshMinutes]);
@@ -367,7 +346,7 @@ export function SettingsPage({ onConfigSaved, initialConfig, onBack, onReset }: 
         {clientItems}
       </Section>
 
-      <Section header={<Text>小组件设置</Text>} footer={<Text>设置小组件自动刷新的时间间隔</Text>}>
+      <Section header={<Text>小组件设置</Text>} footer={<Text>实际刷新频率由系统决定</Text>}>
         {refreshSection}
       </Section>
 

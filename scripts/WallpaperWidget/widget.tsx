@@ -19,8 +19,7 @@ async function main() {
     console.error("加载ACG图片失败:", error);
   }
 
-  // 计算刷新间隔
-  const refreshSeconds = getRefreshInterval(config);
+  const reloadPolicy = getReloadPolicy(config);
 
   Widget.present(
     <ZStack>
@@ -47,24 +46,29 @@ async function main() {
         </VStack>
       )}
     </ZStack>,
-    {
-      policy: "after",
-      date: new Date(Date.now() + refreshSeconds * 1000)
-    }
+    reloadPolicy
   );
 }
 
-function getRefreshInterval(config: ACGConfig | null): number {
+function getReloadPolicy(
+  config: ACGConfig | null
+): { policy: "after"; date: Date } | { policy: "atEnd" } {
   if (!config || config.isAutoRefreshing !== 1 || !config.refreshInterval) {
-    return DEFAULT_REFRESH_SECONDS;
+    return { policy: "atEnd" };
   }
 
   const interval = parseInt(config.refreshInterval, 10);
   if (isNaN(interval) || interval < MIN_REFRESH_INTERVAL) {
-    return DEFAULT_REFRESH_SECONDS;
+    return {
+      policy: "after",
+      date: new Date(Date.now() + DEFAULT_REFRESH_SECONDS * 1000)
+    };
   }
 
-  return interval;
+  return {
+    policy: "after",
+    date: new Date(Date.now() + interval * 1000)
+  };
 }
 
 main();

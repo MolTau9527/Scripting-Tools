@@ -56,12 +56,28 @@ export const StoreScreen = () => {
       const term = searchTerm.toLowerCase()
       result = result.filter(p => p.name.toLowerCase().includes(term) || p.description.toLowerCase().includes(term) || p.author.toLowerCase().includes(term))
     }
-    return sortType === 'time'
-      ? [...result].sort((a, b) => new Date(b.updateTime).getTime() - new Date(a.updateTime).getTime())
-      : [...result].sort((a, b) => (b.installCount || 0) - (a.installCount || 0))
+    if (sortType === 'time') {
+      return [...result].sort((a, b) => {
+        const timeA = Date.parse(a.updateTime)
+        const timeB = Date.parse(b.updateTime)
+        const safeTimeA = Number.isNaN(timeA) ? 0 : timeA
+        const safeTimeB = Number.isNaN(timeB) ? 0 : timeB
+        return safeTimeB - safeTimeA
+      })
+    }
+    return [...result].sort((a, b) => (b.installCount || 0) - (a.installCount || 0))
   }, [plugins, searchTerm, sortType])
 
-  const handleInstall = useCallback((plugin: Plugin) => { installPlugin(plugin) }, [])
+  const handleInstall = useCallback(async (plugin: Plugin) => {
+    try {
+      await installPlugin(plugin)
+    } catch (error) {
+      await Dialog.alert({
+        title: '安装失败',
+        message: error instanceof Error ? error.message : '安装过程中出现错误'
+      })
+    }
+  }, [])
 
   const handleShowDetail = useCallback(async (plugin: Plugin) => {
     await Navigation.present({ element: <PluginDetail plugin={plugin} onInstall={handleInstall} themeMode={themeMode} plugins={plugins} />, modalPresentationStyle: 'pageSheet' })

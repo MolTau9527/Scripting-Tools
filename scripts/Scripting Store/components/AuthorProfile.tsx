@@ -10,6 +10,8 @@ interface AuthorProfileProps {
   themeMode: ThemeMode
 }
 
+const isImageUrl = (icon: string) => icon.startsWith('http') || icon.startsWith('data:')
+
 export const AuthorProfile = ({ authorName, plugins, onDetail, onInstall, themeMode }: AuthorProfileProps) => {
   const dismiss = Navigation.useDismiss()
   const colors = getThemeColors(themeMode)
@@ -46,33 +48,34 @@ export const AuthorProfile = ({ authorName, plugins, onDetail, onInstall, themeM
                     background={colors.inputBackground}
                     clipShape={{ type: 'rect', cornerRadius: 8 }}
                     spacing={12}
-                    onTapGesture={() => onDetail(plugin)}
                   >
-                    {plugin.symbol ? (
-                      <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
-                        <Image systemName={plugin.symbol} font={28} foregroundStyle={colors.textPrimary} />
+                    <HStack spacing={12} frame={{ maxWidth: 'infinity' }} onTapGesture={() => onDetail(plugin)}>
+                      {plugin.symbol ? (
+                        <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
+                          <Image systemName={plugin.symbol} font={28} foregroundStyle={colors.textPrimary} />
+                        </VStack>
+                      ) : plugin.icon && isImageUrl(plugin.icon) ? (
+                        <Image
+                          imageUrl={plugin.icon}
+                          resizable
+                          frame={{ width: 44, height: 44 }}
+                          clipShape={{ type: 'rect', cornerRadius: 10 }}
+                          placeholder={
+                            <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
+                              <Text font={24}>📦</Text>
+                            </VStack>
+                          }
+                        />
+                      ) : (
+                        <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }} alignment="center">
+                          <Text font={24}>{plugin.icon || '📦'}</Text>
+                        </VStack>
+                      )}
+                      <VStack alignment="leading" spacing={2} frame={{ maxWidth: 'infinity' }}>
+                        <Text font={15} fontWeight="medium" foregroundStyle={colors.textPrimary} lineLimit={1}>{plugin.name}</Text>
+                        <Text font={12} foregroundStyle={colors.textSecondary} lineLimit={1}>{plugin.description}</Text>
                       </VStack>
-                    ) : plugin.icon ? (
-                      <Image
-                        imageUrl={plugin.icon}
-                        resizable
-                        frame={{ width: 44, height: 44 }}
-                        clipShape={{ type: 'rect', cornerRadius: 10 }}
-                        placeholder={
-                          <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
-                            <Text font={24}>📦</Text>
-                          </VStack>
-                        }
-                      />
-                    ) : (
-                      <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
-                        <Text font={24}>📦</Text>
-                      </VStack>
-                    )}
-                    <VStack alignment="leading" spacing={2} frame={{ maxWidth: 'infinity' }}>
-                      <Text font={15} fontWeight="medium" foregroundStyle={colors.textPrimary} lineLimit={1}>{plugin.name}</Text>
-                      <Text font={12} foregroundStyle={colors.textSecondary} lineLimit={1}>{plugin.description}</Text>
-                    </VStack>
+                    </HStack>
                     <Button action={() => onInstall(plugin)}>
                       <Text
                         font={13}
