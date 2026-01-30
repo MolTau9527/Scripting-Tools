@@ -131,7 +131,6 @@ scripts/
 - **框架**: React (TSX)
 - **运行环境**: Scripting App (iOS)
 - **UI 组件**: Scripting App 内置组件
-- **状态管理**: useObservable / createGlobalStateUtils（自研）
 - **数据持久化**: Storage API
 
 ## 许可证
