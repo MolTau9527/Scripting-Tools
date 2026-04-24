@@ -1,141 +1,261 @@
-import { Button, HStack, Image, Navigation, Spacer, Text, VStack, useCallback, useEffect, useMemo, useState } from 'scripting'
-import { fetchConfig, fetchPlugins } from '../api'
-import { Changelog, MyProfile, PluginDetail, PluginList, SearchBar, SubmitForm } from '../components'
-import type { LoadingState, Plugin, SiteConfig, SortType } from '../types'
+import { Button, GeometryReader, GlassEffectContainer, HStack, Image, Navigation, ScrollView, Spacer, Text, VStack, useCallback, useMemo, useState } from 'scripting'
+import { ThemeProvider, useTheme, useToggleTheme, getThemeIcon } from '../contexts/ThemeContext'
+import { StoreProvider, useStore, usePluginQuery, useConfig } from '../contexts/StoreContext'
+import { SearchBar } from '../components/SearchBar'
+import { SegmentedControl } from '../components/SegmentedControl'
+import { FeaturedSection } from '../components/FeaturedSection'
+import { PluginList } from '../components/PluginList'
+import { PluginDetail } from '../components/PluginDetail'
+import { MyProfile } from '../components/MyProfile'
+import { SubmitForm } from '../components/SubmitForm'
+import { Changelog } from '../components/Changelog'
 import { installPlugin } from '../utils/installer'
-import { type ThemeMode, getThemeColors, getGradientBackground, getHeaderGradient, getSavedTheme, saveTheme, getActualThemeMode } from '../utils/theme'
+import { spacing, fontSize, cornerRadius, createSymmetricPadding, getGradientBackground } from '../utils/styles'
+import { getPluginKey } from '../utils/plugin'
+import type { Plugin, SortType } from '../types'
 
-export const StoreScreen = () => {
+// 运行时全局：Dialog 由 Scripting 注入，不从 'scripting' import（仅类型导出）。
+// alert 全局作为兜底。两者都可能在某些版本缺失，因此用 try/catch 包裹。
+declare const Dialog: {
+  alert: (options: { message: string; title?: string; buttonLabel?: string }) => Promise<void>
+} | undefined
+declare const alert: ((options: { message: string; title?: string; buttonLabel?: string }) => Promise<void>) | undefined
+
+const showError = async (title: string, message: string) => {
+  try {
+    if (typeof Dialog !== 'undefined' && Dialog && typeof Dialog.alert === 'function') {
+      await Dialog.alert({ title, message })
+      return
+    }
+  } catch (_) { /* fallthrough */ }
+  try {
+    if (typeof alert === 'function') {
+      await alert({ title, message })
+      return
+    }
+  } catch (_) { /* fallthrough */ }
+  try { console.error(`[${title}] ${message}`) } catch (_) { /* ignore */ }
+}
+
+const StoreContent = () => {
   const dismiss = Navigation.useDismiss()
-  const [themeMode, setThemeMode] = useState<ThemeMode>(getSavedTheme())
-  const [plugins, setPlugins] = useState<Plugin[]>([])
+  const { mode, actualMode, colors } = useTheme()
+  const toggleTheme = useToggleTheme()
+  const { plugins, refresh } = useStore()
+  const config = useConfig()
   const [searchTerm, setSearchTerm] = useState('')
   const [sortType, setSortType] = useState<SortType>('time')
-  const [loadingState, setLoadingState] = useState<LoadingState>('idle')
-  const [error, setError] = useState<string | null>(null)
-  const [config, setConfig] = useState<SiteConfig>({ bannerTitle: '插件中心', bannerSubtitle: '只为Scripting打造' })
-  const [, forceRefresh] = useState(0)
+  const [installingPluginKey, setInstallingPluginKey] = useState<string | null>(null)
 
-  const { actualTheme, colors, gradientBg, headerGradient } = useMemo(() => ({
-    actualTheme: getActualThemeMode(themeMode),
-    colors: getThemeColors(themeMode),
-    gradientBg: getGradientBackground(themeMode),
-    headerGradient: getHeaderGradient(themeMode)
-  }), [themeMode])
+  const filteredPlugins = usePluginQuery({ searchTerm, sortType })
+  const shouldSplitRecentFeed = !searchTerm.trim() && sortType === 'time'
+  const featuredPlugins = useMemo(() => {
+    return shouldSplitRecentFeed ? filteredPlugins.slice(0, 5) : []
+  }, [filteredPlugins, shouldSplitRecentFeed])
+  const listPlugins = useMemo(() => {
+    return shouldSplitRecentFeed ? filteredPlugins.slice(5) : filteredPlugins
+  }, [filteredPlugins, shouldSplitRecentFeed])
 
-  const handleSearchSubmit = useCallback((term: string) => {
-    setSearchTerm(term)
+  const presentSheet = useCallback(async (element: JSX.Element) => {
+    await Navigation.present({
+      element: <ThemeProvider>{element}</ThemeProvider>,
+      modalPresentationStyle: 'pageSheet',
+    })
   }, [])
-
-  const toggleTheme = useCallback(() => {
-    const modes: ThemeMode[] = ['light', 'dark', 'system']
-    const newMode = modes[(modes.indexOf(themeMode) + 1) % 3]
-    setThemeMode(newMode)
-    saveTheme(newMode)
-  }, [themeMode])
-
-  const loadData = useCallback(async () => {
-    setLoadingState('loading')
-    setError(null)
-    try {
-      const [pluginsData, configData] = await Promise.all([fetchPlugins(), fetchConfig()])
-      setPlugins(pluginsData)
-      setConfig(configData)
-      setLoadingState('success')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '加载失败')
-      setLoadingState('error')
-    }
-  }, [])
-
-  useEffect(() => { loadData() }, [loadData])
-
-  const filteredPlugins = useMemo(() => {
-    let result = plugins
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase()
-      result = result.filter(p => p.name.toLowerCase().includes(term) || p.description.toLowerCase().includes(term) || p.author.toLowerCase().includes(term))
-    }
-    if (sortType === 'time') {
-      return [...result].sort((a, b) => {
-        const timeA = Date.parse(a.updateTime)
-        const timeB = Date.parse(b.updateTime)
-        const safeTimeA = Number.isNaN(timeA) ? 0 : timeA
-        const safeTimeB = Number.isNaN(timeB) ? 0 : timeB
-        return safeTimeB - safeTimeA
-      })
-    }
-    return [...result].sort((a, b) => (b.installCount || 0) - (a.installCount || 0))
-  }, [plugins, searchTerm, sortType])
 
   const handleInstall = useCallback(async (plugin: Plugin) => {
+    const pluginKey = getPluginKey(plugin)
+    setInstallingPluginKey(pluginKey)
+
     try {
       await installPlugin(plugin)
     } catch (error) {
-      await Dialog.alert({
-        title: '安装失败',
-        message: error instanceof Error ? error.message : '安装过程中出现错误'
-      })
+      await showError(
+        '安装失败',
+        error instanceof Error ? error.message : '安装过程中出现错误',
+      )
+    } finally {
+      setInstallingPluginKey(current => (current === pluginKey ? null : current))
     }
   }, [])
 
   const handleShowDetail = useCallback(async (plugin: Plugin) => {
-    await Navigation.present({ element: <PluginDetail plugin={plugin} onInstall={handleInstall} themeMode={themeMode} plugins={plugins} />, modalPresentationStyle: 'pageSheet' })
-  }, [handleInstall, themeMode, plugins])
+    await presentSheet(
+      <PluginDetail
+        plugin={plugin}
+        onInstall={handleInstall}
+        plugins={plugins}
+        onDetail={handleShowDetail}
+        isInstalling={installingPluginKey === getPluginKey(plugin)}
+        installDisabled={Boolean(installingPluginKey)}
+        installingPluginKey={installingPluginKey}
+      />
+    )
+  }, [handleInstall, installingPluginKey, plugins, presentSheet])
 
-  const handleShowSubmitForm = useCallback(async () => {
-    await Navigation.present({ element: <SubmitForm onSuccess={loadData} themeMode={themeMode} />, modalPresentationStyle: 'pageSheet' })
-  }, [loadData, themeMode])
+  const handleShowSubmit = useCallback(async () => {
+    await presentSheet(<SubmitForm onSuccess={refresh} />)
+  }, [presentSheet, refresh])
 
   const handleShowMyProfile = useCallback(async () => {
-    await Navigation.present({ element: <MyProfile plugins={plugins} onRefresh={loadData} themeMode={themeMode} onDetail={handleShowDetail} onInstall={handleInstall} />, modalPresentationStyle: 'pageSheet' })
-    forceRefresh(n => n + 1)
-  }, [plugins, loadData, themeMode, handleShowDetail, handleInstall])
+    await presentSheet(
+      <MyProfile
+        plugins={plugins}
+        onInstall={handleInstall}
+        onDetail={handleShowDetail}
+        installingPluginKey={installingPluginKey}
+      />
+    )
+  }, [handleInstall, handleShowDetail, installingPluginKey, plugins, presentSheet])
 
   const handleShowChangelog = useCallback(async () => {
-    await Navigation.present({ element: <Changelog themeMode={themeMode} />, modalPresentationStyle: 'pageSheet' })
-  }, [themeMode])
+    await presentSheet(<Changelog />)
+  }, [presentSheet])
 
   return (
-    <VStack frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }} background={gradientBg} ignoresSafeArea={{ edges: 'top' }} preferredColorScheme={actualTheme}>
-      <VStack padding={{ leading: 16, trailing: 16, top: 60, bottom: 16 }} background={headerGradient} frame={{ maxWidth: 'infinity' }}>
-        <HStack alignment="center">
-          <VStack alignment="leading" spacing={4}>
-            <Text font={28} fontWeight="bold" foregroundStyle="#ffffff">{config.bannerTitle}</Text>
-            <Text font={14} foregroundStyle="rgba(255,255,255,0.8)">{config.bannerSubtitle}</Text>
-            <HStack spacing={4} alignment="center">
-              <Text font={12} foregroundStyle="rgba(255,255,255,0.6)">感谢原作者提供网页服务</Text>
-              <Button action={() => Safari.openURL('https://scripting.oraclecloud.us.kg')}>
-                <Text font={12} foregroundStyle="#ffffff" underline="#ffffff">点击跳转网页版</Text>
-              </Button>
-            </HStack>
-          </VStack>
-          <Spacer />
-          <VStack spacing={8} alignment="trailing">
-            <Button action={() => dismiss()}>
-              <HStack padding={{ leading: 12, trailing: 12, top: 8, bottom: 8 }} background="rgba(255,255,255,0.2)" clipShape={{ type: 'rect', cornerRadius: 16 }} alignment="center" spacing={4}>
-                <Image systemName="xmark" foregroundStyle="#ffffff" frame={{ width: 14, height: 14 }} />
-                <Text font={14} fontWeight="medium" foregroundStyle="#ffffff">退出</Text>
-              </HStack>
-            </Button>
-            <Button action={toggleTheme}>
-              <HStack padding={{ leading: 12, trailing: 12, top: 8, bottom: 8 }} background="rgba(255,255,255,0.2)" clipShape={{ type: 'rect', cornerRadius: 16 }} alignment="center" spacing={4}>
-                <Image systemName={themeMode === 'light' ? 'sun.max.fill' : themeMode === 'dark' ? 'moon.fill' : 'circle.lefthalf.filled'} foregroundStyle="#ffffff" frame={{ width: 14, height: 14 }} />
-                <Text font={14} fontWeight="medium" foregroundStyle="#ffffff">{themeMode === 'light' ? '浅色' : themeMode === 'dark' ? '深色' : '跟随'}</Text>
-              </HStack>
-            </Button>
-            <Button action={handleShowChangelog}>
-              <HStack padding={{ leading: 12, trailing: 12, top: 8, bottom: 8 }} background="rgba(255,255,255,0.2)" clipShape={{ type: 'rect', cornerRadius: 16 }} alignment="center" spacing={4}>
-                <Image systemName="doc.text" foregroundStyle="#ffffff" frame={{ width: 14, height: 14 }} />
-                <Text font={14} fontWeight="medium" foregroundStyle="#ffffff">日志</Text>
-              </HStack>
-            </Button>
-          </VStack>
-        </HStack>
-      </VStack>
+    <GlassEffectContainer>
+      <GeometryReader>
+        {(proxy) => {
+          const screenHeight = proxy.size.height
+          const isCompact = screenHeight < 700
+          const topPadding = Math.max(50, Math.floor(screenHeight * 0.06))
+          const titleFont = isCompact ? fontSize.title2 : fontSize.largeTitle
+          const subtitleFont = isCompact ? fontSize.footnote : fontSize.subheadline
+          const layoutSpacing = isCompact ? 2 : spacing.xs
 
-      <SearchBar onSearchSubmit={handleSearchSubmit} sortType={sortType} onSortChange={setSortType} onSubmit={handleShowSubmitForm} onMyProfile={handleShowMyProfile} themeMode={themeMode} />
-      <PluginList plugins={filteredPlugins} loadingState={loadingState} error={error} onInstall={handleInstall} onDetail={handleShowDetail} onRefresh={loadData} themeMode={themeMode} />
-    </VStack>
+          return (
+            <VStack
+              frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }}
+              background={getGradientBackground(actualMode)}
+              ignoresSafeArea={{ edges: 'top' }}
+              preferredColorScheme={actualMode}
+              onTapGesture={() => Keyboard.hide()}
+            >
+              <VStack frame={{ minHeight: 180 }}>
+                <VStack
+                  padding={{ leading: spacing.lg, trailing: spacing.lg, top: topPadding, bottom: layoutSpacing }}
+                  frame={{ maxWidth: 'infinity' }}
+                >
+                  <HStack alignment="center">
+                    <VStack alignment="leading" spacing={isCompact ? 0 : spacing.xs}>
+                      <Text font={titleFont} fontWeight="bold" foregroundStyle={colors.label}>
+                        {config.bannerTitle}
+                      </Text>
+                      <Text font={subtitleFont} foregroundStyle={colors.secondaryLabel}>
+                        {config.bannerSubtitle}
+                      </Text>
+                    </VStack>
+
+                    <Spacer />
+
+                    <VStack spacing={spacing.xs}>
+                      <Button action={handleShowChangelog} buttonStyle="plain">
+                        <VStack frame={{ width: 36, height: 36 }}>
+                          <Image
+                            systemName="doc.text"
+                            foregroundStyle={colors.tint}
+                            frame={{ width: 16, height: 16 }}
+                          />
+                        </VStack>
+                      </Button>
+                      <Button action={toggleTheme} buttonStyle="plain">
+                        <VStack frame={{ width: 36, height: 36 }}>
+                          <Image
+                            systemName={getThemeIcon(mode)}
+                            foregroundStyle={colors.tint}
+                            frame={{ width: 16, height: 16 }}
+                          />
+                        </VStack>
+                      </Button>
+                      <Button action={() => dismiss()} buttonStyle="plain">
+                        <VStack frame={{ width: 36, height: 36 }}>
+                          <Image
+                            systemName="xmark"
+                            foregroundStyle={colors.secondaryLabel}
+                            frame={{ width: 12, height: 12 }}
+                            fontWeight="semibold"
+                          />
+                        </VStack>
+                      </Button>
+                    </VStack>
+                  </HStack>
+                </VStack>
+
+                <VStack>
+                  <SearchBar
+                    value={searchTerm}
+                    onChangeText={setSearchTerm}
+                    placeholder="搜索插件..."
+                  />
+                </VStack>
+
+                <HStack
+                  padding={{ leading: spacing.lg, trailing: spacing.lg, top: layoutSpacing, bottom: layoutSpacing }}
+                  alignment="center"
+                >
+                  <SegmentedControl value={sortType} onChange={setSortType} />
+
+                  <Spacer />
+
+                  <HStack spacing={spacing.md}>
+                    <Button action={handleShowSubmit} buttonStyle="plain">
+                      <Text
+                        font={fontSize.subheadline}
+                        fontWeight="semibold"
+                        foregroundStyle="#ffffff"
+                        padding={createSymmetricPadding(spacing.sm, spacing.xl)}
+                        frame={{ minHeight: 36 }}
+                        background={colors.tint}
+                        clipShape={{ type: 'rect', cornerRadius: cornerRadius.full }}
+                      >
+                        发布
+                      </Text>
+                    </Button>
+
+                    <Button action={handleShowMyProfile} buttonStyle="plain">
+                      <VStack frame={{ width: 44, height: 44 }}>
+                        <Image
+                          systemName="person.fill"
+                          foregroundStyle={colors.tint}
+                          frame={{ width: 22, height: 22 }}
+                        />
+                      </VStack>
+                    </Button>
+                  </HStack>
+                </HStack>
+              </VStack>
+
+              <ScrollView scrollDismissesKeyboard="immediately">
+                {shouldSplitRecentFeed ? (
+                  <FeaturedSection
+                    plugins={featuredPlugins}
+                    onInstall={handleInstall}
+                    onDetail={handleShowDetail}
+                    installingPluginKey={installingPluginKey}
+                  />
+                ) : <VStack />}
+
+                <PluginList
+                  plugins={listPlugins}
+                  onInstall={handleInstall}
+                  onDetail={handleShowDetail}
+                  installingPluginKey={installingPluginKey}
+                />
+              </ScrollView>
+            </VStack>
+          )
+        }}
+      </GeometryReader>
+    </GlassEffectContainer>
+  )
+}
+
+export const StoreScreen = () => {
+  return (
+    <ThemeProvider>
+      <StoreProvider>
+        <StoreContent />
+      </StoreProvider>
+    </ThemeProvider>
   )
 }

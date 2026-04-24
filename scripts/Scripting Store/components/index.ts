@@ -1,8 +1,2 @@
-export { AuthorProfile } from './AuthorProfile'
-export { Changelog } from './Changelog'
-export { MyProfile } from './MyProfile'
-export { PluginCard } from './PluginCard'
-export { PluginDetail } from './PluginDetail'
-export { PluginList } from './PluginList'
-export { SearchBar } from './SearchBar'
-export { SubmitForm } from './SubmitForm'
+// 占位导出，避免热更新在目录 index.ts 上解析空模块或 re-export 时失败。
+export const __scriptingStoreComponentsIndexPlaceholder = true

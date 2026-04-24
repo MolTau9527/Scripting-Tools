@@ -1,54 +1,39 @@
-import { Script } from 'scripting'
 import type { Plugin } from '../types'
+import { buildImportScheme, isImportScheme, parseUrlsFromParam } from './importUrl'
 
-const extractUrlsParam = (url: string): string | null => {
-  const match = url.match(/[?&]urls=([^&]+)/)
-  return match?.[1] ? decodeURIComponent(match[1]) : null
+// 参考插件「脚本商店」的做法：只调用全局 Safari.openURL + 已构造好的 scheme，
+// 不在首页按钮路径上做任何 URL 校验（校验已在发布表单处完成），保证即点即跳。
+declare const Safari: {
+  openURL: (url: string) => void | Promise<boolean>
 }
 
-const parseUrlsFromParam = (url: string): string[] | null => {
-  try {
-    const param = extractUrlsParam(url)
-    if (!param) return null
-    const urls = JSON.parse(param)
-    return Array.isArray(urls) && urls.length > 0 ? urls : null
-  } catch { return null }
-}
+const HTTP_PROTOCOL = /^https?:\/\//i
 
-const isImportableUrl = (url: string) =>
-  /\.(scripting|js|zip)($|\?)/i.test(url) || url.includes('github.com')
+/**
+ * 把 plugin.url 规范化为 iOS 可直接打开的"安装目标"：
+ *   - import scheme → 重建以拿到最新格式
+ *   - http(s)       → 包成 import scheme
+ *   - 其他协议       → 原样（交给系统处理）
+ */
+const resolveInstallTarget = (rawUrl: string): string => {
+  const value = (rawUrl || '').trim()
+  if (!value) throw new Error('插件链接为空')
 
-const openImportUrl = async (urls: string[]) => {
-  const scheme = Script.createImportScriptsURLScheme?.(urls)
-    ?? `scripting://import_scripts?urls=${encodeURIComponent(JSON.stringify(urls))}`
-  await Safari.openURL(scheme)
+  if (isImportScheme(value)) {
+    const urls = parseUrlsFromParam(value)
+    return urls && urls.length > 0 ? buildImportScheme(urls) : value
+  }
+
+  if (HTTP_PROTOCOL.test(value)) {
+    return buildImportScheme([value])
+  }
+
+  return value
 }
 
 export async function installPlugin(plugin: Plugin): Promise<void> {
-  if (!plugin.url || plugin.url === '#') return
-
-  let targetUrl = plugin.url
-
-  // 处理旧版 scripting.fun 链接
-  if (targetUrl.startsWith('https://scripting.fun/import_scripts')) {
-    targetUrl = parseUrlsFromParam(targetUrl)?.[0] ?? targetUrl
-  }
-
-  // scripting:// 协议
-  if (targetUrl.startsWith('scripting://')) {
-    const urls = parseUrlsFromParam(targetUrl)
-    if (urls) { await openImportUrl(urls); return }
-    Safari.openURL(targetUrl)
-    return
-  }
-
-  // 非可导入链接直接打开
-  if (!isImportableUrl(targetUrl)) { Safari.openURL(targetUrl); return }
-
-  // 封装并安装
-  try {
-    await openImportUrl([targetUrl])
-  } catch {
-    Safari.openURL(targetUrl)
-  }
+  const target = resolveInstallTarget(plugin.url || '')
+  // Safari.openURL 的返回类型在不同运行时版本里有差异（void 或 Promise<boolean>），
+  // 统一 await 吸收 Promise。
+  await Promise.resolve(Safari.openURL(target))
 }

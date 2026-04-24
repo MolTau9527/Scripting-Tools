@@ -1,70 +1,56 @@
-import { Image, ProgressView, ScrollView, Text, VStack, useState } from 'scripting'
-import type { LoadingState, Plugin } from '../types'
-import { type ThemeMode, getThemeColors } from '../utils/theme'
+import { LazyVStack } from 'scripting'
+import { useStoreStatus } from '../contexts/StoreContext'
 import { PluginCard } from './PluginCard'
+import { LoadingView, EmptyView, ErrorView } from './common/LoadingView'
+import { spacing } from '../utils/styles'
+import { getPluginKey } from '../utils/plugin'
+import type { Plugin } from '../types'
 
-interface PluginListProps {
+export interface PluginListProps {
   plugins: Plugin[]
-  loadingState: LoadingState
-  error: string | null
   onInstall: (plugin: Plugin) => void
   onDetail: (plugin: Plugin) => void
-  onRefresh: () => void
-  themeMode: ThemeMode
+  installingPluginKey?: string | null
 }
 
-const EmptyState = ({ message, icon, colors }: { message: string; icon: string; colors: ReturnType<typeof getThemeColors> }) => (
-  <VStack frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }} spacing={16} alignment="center">
-    <Image systemName={icon} foregroundStyle={colors.textTertiary} frame={{ width: 48, height: 48 }} />
-    <Text font={16} foregroundStyle={colors.textSecondary}>{message}</Text>
-  </VStack>
-)
+export const PluginList = ({
+  plugins,
+  onInstall,
+  onDetail,
+  installingPluginKey = null,
+}: PluginListProps) => {
+  const { status, error, refresh } = useStoreStatus()
 
-const LoadingView = ({ colors }: { colors: ReturnType<typeof getThemeColors> }) => (
-  <VStack frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }} spacing={16} alignment="center">
-    <ProgressView />
-    <Text font={16} foregroundStyle={colors.textSecondary}>加载中...</Text>
-  </VStack>
-)
-
-const ErrorView = ({ message, onRetry, colors }: { message: string; onRetry: () => void; colors: ReturnType<typeof getThemeColors> }) => (
-  <VStack frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }} spacing={16} alignment="center" onTapGesture={onRetry}>
-    <Image systemName="exclamationmark.circle" foregroundStyle={colors.buttonDanger} frame={{ width: 48, height: 48 }} />
-    <Text font={16} foregroundStyle={colors.textSecondary}>{message}</Text>
-    <Text font={14} foregroundStyle={colors.buttonPrimary}>点击重试</Text>
-  </VStack>
-)
-
-export const PluginList = ({ plugins, loadingState, error, onInstall, onDetail, onRefresh, themeMode }: PluginListProps) => {
-  const [, setRefresh] = useState(0)
-  const colors = getThemeColors(themeMode)
-
-  if (loadingState === 'loading') {
-    return <LoadingView colors={colors} />
+  if (status === 'loading') {
+    return <LoadingView />
   }
 
-  if (loadingState === 'error' && error) {
-    return <ErrorView message={error} onRetry={onRefresh} colors={colors} />
+  if (status === 'error' && error) {
+    return <ErrorView message={error} onRetry={refresh} />
   }
 
   if (plugins.length === 0) {
-    return <EmptyState message="未找到匹配的插件" icon="magnifyingglass" colors={colors} />
+    return <EmptyView icon="magnifyingglass" message="未找到匹配的插件" />
   }
 
   return (
-    <ScrollView scrollDismissesKeyboard="interactively">
-      <VStack padding={16} spacing={12}>
-        {plugins.map(plugin => (
+    <LazyVStack padding={spacing.lg} spacing={spacing.md}>
+      {plugins.map((plugin) => {
+        const pluginKey = getPluginKey(plugin)
+        const hasActiveInstall = Boolean(installingPluginKey)
+        const isInstalling = installingPluginKey === pluginKey
+
+        return (
           <PluginCard
-            key={plugin.id}
+            key={pluginKey}
             plugin={plugin}
             onInstall={onInstall}
             onDetail={onDetail}
-            themeMode={themeMode}
-            onFollowChange={() => setRefresh(n => n + 1)}
+            isInstalling={isInstalling}
+            installDisabled={hasActiveInstall}
           />
-        ))}
-      </VStack>
-    </ScrollView>
+        )
+      })}
+    </LazyVStack>
   )
 }

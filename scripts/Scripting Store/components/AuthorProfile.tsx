@@ -1,98 +1,91 @@
-import { Button, HStack, Image, Navigation, ScrollView, Spacer, Text, VStack } from 'scripting'
+import { Navigation, ScrollView, Text, VStack } from 'scripting'
+import { useTheme } from '../contexts/ThemeContext'
+import { ContentCard } from './common/ContentCard'
+import { EmptyState } from './common/EmptyState'
+import { GetButton } from './common/GetButton'
+import { NavigationAction } from './common/NavigationAction'
+import { PageHeader } from './common/PageHeader'
+import { ProfileWorkRow } from './common/ProfileWorkRow'
+import { spacing, fontSize } from '../utils/styles'
+import { getPluginKey } from '../utils/plugin'
 import type { Plugin } from '../types'
-import { type ThemeMode, getThemeColors } from '../utils/theme'
+import { pluginHasAuthor } from '../utils/author'
 
-interface AuthorProfileProps {
+// ============================================================
+// Types
+// ============================================================
+
+export interface AuthorProfileProps {
   authorName: string
   plugins: Plugin[]
-  onDetail: (plugin: Plugin) => void
   onInstall: (plugin: Plugin) => void
-  themeMode: ThemeMode
+  onDetail?: (plugin: Plugin) => void
+  installingPluginKey?: string | null
 }
 
-const isImageUrl = (icon: string) => icon.startsWith('http') || icon.startsWith('data:')
+// ============================================================
+// Component
+// ============================================================
 
-export const AuthorProfile = ({ authorName, plugins, onDetail, onInstall, themeMode }: AuthorProfileProps) => {
+export const AuthorProfile = ({
+  authorName,
+  plugins,
+  onInstall,
+  onDetail,
+  installingPluginKey = null,
+}: AuthorProfileProps) => {
   const dismiss = Navigation.useDismiss()
-  const colors = getThemeColors(themeMode)
-  const authorPlugins = plugins.filter(p => p.author.toLowerCase().includes(authorName.toLowerCase()))
+  const { actualMode, colors } = useTheme()
+  const authorPlugins = plugins.filter(p =>
+    pluginHasAuthor(p.author, authorName)
+  )
 
   return (
-    <VStack frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }} background={colors.background}>
-      <HStack padding={16} background={colors.cardBackground} alignment="center">
-        <Button action={() => dismiss()}>
-          <Text font={16} foregroundStyle={colors.buttonPrimary}>返回</Text>
-        </Button>
-        <Spacer />
-        <Text font={17} fontWeight="semibold" foregroundStyle={colors.textPrimary}>{authorName}</Text>
-        <Spacer />
-        <VStack frame={{ width: 50 }} />
-      </HStack>
+    <VStack
+      frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }}
+      background={colors.secondaryBackground}
+      preferredColorScheme={actualMode}
+    >
+      <PageHeader
+        title={authorName}
+        leading={<NavigationAction type="back" onPress={() => dismiss()} />}
+      />
 
       <ScrollView>
-        <VStack padding={16} spacing={16}>
-          <VStack padding={20} background={colors.cardBackground} clipShape={{ type: 'rect', cornerRadius: 12 }} spacing={12}>
-            <Text font={14} foregroundStyle={colors.textSecondary}>{authorName} 的作品 ({authorPlugins.length})</Text>
+        <VStack padding={spacing.lg} spacing={spacing.lg}>
+          {/* Works Section */}
+          <ContentCard>
+            <Text font={fontSize.subheadline} foregroundStyle={colors.secondaryLabel}>
+              {authorName} 的作品 ({authorPlugins.length})
+            </Text>
 
             {authorPlugins.length === 0 ? (
-              <VStack padding={20} spacing={8}>
-                <Image systemName="doc.text.magnifyingglass" foregroundStyle={colors.textTertiary} frame={{ width: 40, height: 40 }} />
-                <Text font={14} foregroundStyle={colors.textTertiary}>暂无作品</Text>
-              </VStack>
+              <EmptyState icon="doc.text.magnifyingglass" message="暂无作品" />
             ) : (
-              <VStack spacing={8}>
-                {authorPlugins.map((plugin, index) => (
-                  <HStack
-                    key={plugin.id || index}
-                    padding={12}
-                    background={colors.inputBackground}
-                    clipShape={{ type: 'rect', cornerRadius: 8 }}
-                    spacing={12}
-                  >
-                    <HStack spacing={12} frame={{ maxWidth: 'infinity' }} onTapGesture={() => onDetail(plugin)}>
-                      {plugin.symbol ? (
-                        <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
-                          <Image systemName={plugin.symbol} font={28} foregroundStyle={colors.textPrimary} />
-                        </VStack>
-                      ) : plugin.icon && isImageUrl(plugin.icon) ? (
-                        <Image
-                          imageUrl={plugin.icon}
-                          resizable
-                          frame={{ width: 44, height: 44 }}
-                          clipShape={{ type: 'rect', cornerRadius: 10 }}
-                          placeholder={
-                            <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }}>
-                              <Text font={24}>📦</Text>
-                            </VStack>
-                          }
+              <VStack spacing={spacing.sm}>
+                {authorPlugins.map((plugin) => {
+                  const pluginKey = getPluginKey(plugin)
+                  const hasActiveInstall = Boolean(installingPluginKey)
+
+                  return (
+                    <ProfileWorkRow
+                      key={pluginKey}
+                      plugin={plugin}
+                      subtitle={plugin.description || '暂无描述'}
+                      onPress={() => onDetail?.(plugin)}
+                      trailing={(
+                        <GetButton
+                          onPress={() => onInstall(plugin)}
+                          isLoading={installingPluginKey === pluginKey}
+                          disabled={hasActiveInstall}
                         />
-                      ) : (
-                        <VStack frame={{ width: 44, height: 44 }} background={colors.border} clipShape={{ type: 'rect', cornerRadius: 10 }} alignment="center">
-                          <Text font={24}>{plugin.icon || '📦'}</Text>
-                        </VStack>
                       )}
-                      <VStack alignment="leading" spacing={2} frame={{ maxWidth: 'infinity' }}>
-                        <Text font={15} fontWeight="medium" foregroundStyle={colors.textPrimary} lineLimit={1}>{plugin.name}</Text>
-                        <Text font={12} foregroundStyle={colors.textSecondary} lineLimit={1}>{plugin.description}</Text>
-                      </VStack>
-                    </HStack>
-                    <Button action={() => onInstall(plugin)}>
-                      <Text
-                        font={13}
-                        fontWeight="medium"
-                        foregroundStyle="#ffffff"
-                        padding={{ leading: 12, trailing: 12, top: 6, bottom: 6 }}
-                        background={colors.buttonPrimary}
-                        clipShape={{ type: 'rect', cornerRadius: 12 }}
-                      >
-                        安装
-                      </Text>
-                    </Button>
-                  </HStack>
-                ))}
+                    />
+                  )
+                })}
               </VStack>
             )}
-          </VStack>
+          </ContentCard>
         </VStack>
       </ScrollView>
     </VStack>

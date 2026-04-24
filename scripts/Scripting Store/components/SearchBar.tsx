@@ -1,73 +1,107 @@
-import { Button, HStack, Image, Spacer, Text, TextField, VStack, gradient, useCallback, useState } from 'scripting'
-import type { SortType } from '../types'
-import { type ThemeMode, getThemeColors } from '../utils/theme'
+import { HStack, Image, VStack, useCallback, useEffect, useRef, useState } from 'scripting'
+import { useColors, useTheme } from '../contexts/ThemeContext'
+import { InputField } from './common/InputField'
+import { spacing, cornerRadius, iconSize } from '../utils/styles'
+import { useDebounce } from '../hooks/useDebounce'
 
-interface SearchBarProps {
-  onSearchSubmit: (term: string) => void
-  sortType: SortType
-  onSortChange: (type: SortType) => void
-  onSubmit: () => void
-  onMyProfile: () => void
-  themeMode: ThemeMode
+export interface SearchBarProps {
+  value: string
+  onChangeText: (text: string) => void
+  onSubmit?: () => void
+  placeholder?: string
 }
 
-export const SearchBar = ({ onSearchSubmit, sortType, onSortChange, onSubmit, onMyProfile, themeMode }: SearchBarProps) => {
-  const colors = getThemeColors(themeMode)
-  const [localSearchTerm, setLocalSearchTerm] = useState('')
+export const SearchBar = ({
+  value,
+  onChangeText,
+  onSubmit,
+  placeholder = '搜索',
+}: SearchBarProps) => {
+  const colors = useColors()
+  const { actualMode } = useTheme()
+  const [inputValue, setInputValue] = useState(value)
+  const committedValueRef = useRef(value)
+  const debouncedValue = useDebounce(inputValue, 180)
+
+  useEffect(() => {
+    if (value === committedValueRef.current) {
+      return
+    }
+
+    committedValueRef.current = value
+    setInputValue(value)
+  }, [value])
+
+  useEffect(() => {
+    if (debouncedValue === committedValueRef.current) {
+      return
+    }
+
+    committedValueRef.current = debouncedValue
+    onChangeText(debouncedValue)
+  }, [debouncedValue, onChangeText])
 
   const handleSubmit = useCallback(() => {
-    onSearchSubmit(localSearchTerm)
-  }, [localSearchTerm, onSearchSubmit])
+    onSubmit?.()
+  }, [onSubmit])
+
+  const handleClear = useCallback(() => {
+    committedValueRef.current = ''
+    setInputValue('')
+    onChangeText('')
+  }, [onChangeText])
+
+  const searchBackground = actualMode === 'dark'
+    ? 'rgba(18,49,81,0.8)'
+    : 'rgba(255,255,255,0.68)'
+  const searchBorder = actualMode === 'dark'
+    ? 'rgba(117,196,255,0.2)'
+    : 'rgba(84,163,224,0.22)'
+  const iconColor = colors.secondaryLabel
 
   return (
-    <VStack spacing={12} padding={{ leading: 16, trailing: 16, top: 12, bottom: 12 }}>
-      <HStack padding={{ leading: 12, trailing: 12, top: 10, bottom: 10 }} background={colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 10 }} alignment="center" spacing={8} onSubmit={handleSubmit} submitScope>
-        <Image systemName="magnifyingglass" foregroundStyle={colors.textTertiary} frame={{ width: 16, height: 16 }} />
-        <TextField 
-          title="" 
-          value={localSearchTerm} 
-          prompt="搜索插件..." 
-          onChanged={setLocalSearchTerm} 
-          frame={{ maxWidth: 'infinity' }} 
-          submitLabel="search"
+    <VStack padding={{ leading: spacing.lg, trailing: spacing.lg, top: spacing.sm, bottom: spacing.sm }}>
+      {/*
+       * 水平 padding 使用 spacing.lg (16)：胶囊 (cornerRadius.full) 的半径 ≈ 容器高度/2（约 22pt），
+       * 如果图标 padding 小于这个半径，图标会落在圆弧区域内，视觉上与圆角不贴合。
+       * 多余的 spacing.xs 间隙留给图标与输入框，保持左右对称。
+       */}
+      <HStack
+        padding={{ leading: spacing.lg, trailing: spacing.lg, top: spacing.sm, bottom: spacing.sm }}
+        background={searchBackground}
+        border={{ style: searchBorder, width: 1 }}
+        clipShape={{ type: 'rect', cornerRadius: cornerRadius.full }}
+        alignment="center"
+        spacing={spacing.sm}
+        onSubmit={handleSubmit}
+        submitScope
+      >
+        <Image
+          systemName="magnifyingglass"
+          foregroundStyle={iconColor}
+          resizable
+          aspectRatio={{ contentMode: 'fit' }}
+          frame={{ width: iconSize.sm, height: iconSize.sm }}
         />
-        <Button action={handleSubmit}>
-          <HStack padding={{ leading: 8, trailing: 8, top: 6, bottom: 6 }} background={colors.buttonPrimary} clipShape={{ type: 'rect', cornerRadius: 8 }} alignment="center">
-            <Text font={14} fontWeight="medium" foregroundStyle="#ffffff">搜索</Text>
+        <VStack frame={{ maxWidth: 'infinity' }}>
+          <InputField
+            value={inputValue}
+            placeholder={placeholder}
+            onChanged={setInputValue}
+            submitLabel="search"
+          />
+        </VStack>
+        {inputValue.length > 0 && (
+          <HStack onTapGesture={handleClear}>
+            <Image
+              systemName="xmark.circle.fill"
+              foregroundStyle={iconColor}
+              resizable
+              aspectRatio={{ contentMode: 'fit' }}
+              frame={{ width: iconSize.sm, height: iconSize.sm }}
+            />
           </HStack>
-        </Button>
-      </HStack>
-
-      <HStack spacing={8}>
-        <Button action={() => onSortChange('time')}>
-          <HStack padding={{ leading: 16, trailing: 16, top: 8, bottom: 8 }} background={sortType === 'time' ? colors.buttonPrimary : colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 16 }} alignment="center" spacing={4}>
-            <Image systemName="clock" foregroundStyle={sortType === 'time' ? '#ffffff' : colors.textSecondary} frame={{ width: 14, height: 14 }} />
-            <Text font={14} foregroundStyle={sortType === 'time' ? '#ffffff' : colors.textSecondary}>最新</Text>
-          </HStack>
-        </Button>
-
-        <Button action={() => onSortChange('popular')}>
-          <HStack padding={{ leading: 16, trailing: 16, top: 8, bottom: 8 }} background={sortType === 'popular' ? gradient('linear', { colors: ['#ff6b35', '#f7931e', '#ffcc02'], startPoint: 'leading', endPoint: 'trailing' }) : colors.inputBackground} clipShape={{ type: 'rect', cornerRadius: 16 }} alignment="center" spacing={4}>
-            <Image systemName="flame.fill" foregroundStyle={sortType === 'popular' ? '#ffffff' : colors.textSecondary} frame={{ width: 14, height: 14 }} />
-            <Text font={14} foregroundStyle={sortType === 'popular' ? '#ffffff' : colors.textSecondary}>热门</Text>
-          </HStack>
-        </Button>
-
-        <Spacer />
-
-        <Button action={onSubmit}>
-          <HStack padding={{ leading: 16, trailing: 16, top: 8, bottom: 8 }} background={colors.buttonSuccess} clipShape={{ type: 'rect', cornerRadius: 16 }} alignment="center" spacing={4}>
-            <Image systemName="plus" foregroundStyle="#ffffff" frame={{ width: 14, height: 14 }} />
-            <Text font={14} fontWeight="medium" foregroundStyle="#ffffff">发布</Text>
-          </HStack>
-        </Button>
-
-        <Button action={onMyProfile}>
-          <HStack padding={{ leading: 16, trailing: 16, top: 8, bottom: 8 }} background={colors.buttonGray} clipShape={{ type: 'rect', cornerRadius: 16 }} alignment="center" spacing={4}>
-            <Image systemName="person.fill" foregroundStyle="#ffffff" frame={{ width: 14, height: 14 }} />
-            <Text font={14} fontWeight="medium" foregroundStyle="#ffffff">我的</Text>
-          </HStack>
-        </Button>
+        )}
       </HStack>
     </VStack>
   )

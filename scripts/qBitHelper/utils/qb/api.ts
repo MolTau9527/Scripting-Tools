@@ -1,6 +1,5 @@
 import { fetch } from "scripting";
-import { ConfigData } from '../public/storage';
-import { ClientData } from '../public/types';
+import { ConfigData, ClientData } from '../public/types';
 
 export const QB_SESSION_KEY = 'qbitSession';
 
@@ -26,9 +25,13 @@ const loginQb = async (config: ConfigData): Promise<string | null> => {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     });
     
-    if ((await response.text()) !== 'Ok.') return null;
+    if ((await response.text()) !== 'Ok.') {
+      console.log('[qb] login failed: response body not Ok.');
+      return null;
+    }
     return extractSID(response.headers.get('set-cookie') || response.headers.get('Set-Cookie'));
-  } catch {
+  } catch (e) {
+    console.log('[qb] login error:', e);
     return null;
   }
 };
@@ -87,7 +90,8 @@ export const fetchQbData = async (config: ConfigData): Promise<ClientData | null
       downloadingSeeds: torrents.filter(t => isDownloading(t.state)).length,
       uploadingSeeds: torrents.filter(t => isUploading(t.state)).length,
     };
-  } catch {
+  } catch (e) {
+    console.log('[qb] fetchQbData error:', e);
     return null;
   }
 };

@@ -6,7 +6,40 @@ const DEFAULT_AVATAR_URL = 'https://tjupt.org/bitbucket/160422546887fec40c92246f
 
 const defaultSettings: UserSettings = {
   authorName: '', repoUrl: '', avatar: '', applyAuthorToPublish: false,
-  followedAuthors: [], followedPlugins: []
+  followedPlugins: []
+}
+
+type UserSettingsInput = Partial<UserSettings> | null | undefined
+
+const normalizeString = (value: unknown): string => {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+const normalizeStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return []
+
+  const uniqueValues = new Set<string>()
+  for (const item of value) {
+    if (typeof item !== 'string') continue
+    const normalized = item.trim()
+    if (!normalized) continue
+    uniqueValues.add(normalized)
+  }
+  return [...uniqueValues]
+}
+
+const sanitizeUserSettings = (input: UserSettingsInput): UserSettings => {
+  const source = input && typeof input === 'object' ? input : {}
+
+  return {
+    authorName: normalizeString(source.authorName),
+    repoUrl: normalizeString(source.repoUrl),
+    avatar: normalizeString(source.avatar),
+    applyAuthorToPublish: typeof source.applyAuthorToPublish === 'boolean'
+      ? source.applyAuthorToPublish
+      : false,
+    followedPlugins: normalizeStringArray(source.followedPlugins),
+  }
 }
 
 export async function loadDefaultAvatar(): Promise<string | null> {
@@ -25,11 +58,12 @@ export async function loadDefaultAvatar(): Promise<string | null> {
 
 export const getUserSettings = (): UserSettings => {
   const saved = Storage.get<UserSettings>(STORAGE_KEY)
-  return saved ? { ...defaultSettings, ...saved } : defaultSettings
+  const sanitized = sanitizeUserSettings(saved)
+  return { ...defaultSettings, ...sanitized }
 }
 
 export const saveUserSettings = (settings: Partial<UserSettings>): UserSettings => {
-  const updated = { ...getUserSettings(), ...settings }
+  const updated = sanitizeUserSettings({ ...getUserSettings(), ...settings })
   Storage.set(STORAGE_KEY, updated)
   return updated
 }
@@ -39,14 +73,28 @@ export const resetUserSettings = (): UserSettings => {
   return defaultSettings
 }
 
-const toggleList = <K extends 'followedAuthors' | 'followedPlugins'>(key: K, id: string): UserSettings => {
-  const list = [...(getUserSettings()[key] || [])]
-  const idx = list.indexOf(id)
-  idx === -1 ? list.push(id) : list.splice(idx, 1)
-  return saveUserSettings({ [key]: list })
+// --- Favorite change pub/sub ---------------------------------------
+// 跨页面同步：在任意位置调用 toggleFollowPlugin 后，所有订阅者会被通知。
+const favoriteListeners = new Set<() => void>()
+
+export const subscribeFavoriteChange = (listener: () => void): (() => void) => {
+  favoriteListeners.add(listener)
+  return () => { favoriteListeners.delete(listener) }
 }
 
-export const isFollowingAuthor = (author: string) => getUserSettings().followedAuthors.includes(author)
-export const toggleFollowAuthor = (author: string) => toggleList('followedAuthors', author)
+const notifyFavoriteChange = (): void => {
+  favoriteListeners.forEach(l => { try { l() } catch { /* ignore */ } })
+}
+
+const togglePluginFollow = (id: string): UserSettings => {
+  const list = [...(getUserSettings().followedPlugins || [])]
+  const idx = list.indexOf(id)
+  if (idx === -1) list.push(id)
+  else list.splice(idx, 1)
+  const next = saveUserSettings({ followedPlugins: list })
+  notifyFavoriteChange()
+  return next
+}
+
 export const isFollowingPlugin = (pluginId: string) => (getUserSettings().followedPlugins || []).includes(pluginId)
-export const toggleFollowPlugin = (pluginId: string) => toggleList('followedPlugins', pluginId)
+export const toggleFollowPlugin = (pluginId: string) => togglePluginFollow(pluginId)

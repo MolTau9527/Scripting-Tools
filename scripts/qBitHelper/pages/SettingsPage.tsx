@@ -1,13 +1,16 @@
-import { VStack, HStack, Text, TextField, SecureField, Button, useEffect, Picker, useState, useMemo, useCallback, List, Section, Widget, Image, Spacer, TapGesture, Color } from "scripting";
-import { ClientType, ClientConfig, MultiClientConfig } from '../utils/public/types';
+import { VStack, HStack, Text, TextField, SecureField, Button, Toggle, useEffect, Picker, useState, useMemo, useCallback, List, Section, Widget, Image, Spacer, Color, Menu } from "scripting";
+import { ClientType, ClientConfig, MultiClientConfig, ConfigData } from '../utils/public/types';
 import {
-  ConfigData,
   CLIENT_COUNT,
+  DEFAULT_REFRESH_MINUTES,
   getDefaultMultiConfig,
   getMultiClientConfig,
   setMultiClientConfig,
-  resetAllConfig
+  resetAllConfig,
+  getIconPath,
 } from '../utils/public/storage';
+import { Colors, Spacing, FontSize, Neon, FontDesign } from '../utils/public/theme';
+import { CyberBackground, sectionLabel, rowBg } from '../utils/public/cyber';
 
 interface SettingsPageProps {
   onConfigSaved: (config: ConfigData) => void;
@@ -16,15 +19,12 @@ interface SettingsPageProps {
   onReset?: () => void;
 }
 
-const DEFAULT_REFRESH = 5;
-const CLIENT_ICON_URLS = {
+const refreshLabel = (m: number): string => m === 0 ? '自动' : `${m} 分钟`;
+
+const CLIENT_ICON_URLS: Record<ClientType, string> = {
   qb: 'https://avatars.githubusercontent.com/u/2131270',
-  tr: 'https://avatars.githubusercontent.com/u/223312'
+  tr: 'https://avatars.githubusercontent.com/u/223312',
 };
-
-type SystemColor = "systemBlue" | "systemGreen" | "systemOrange" | "systemPurple" | "systemGray" | "systemRed";
-
-const getIconPath = (type: ClientType) => `${FileManager.documentsDirectory}/qbit_${type}_icon.png`;
 
 const ensureIcons = async () => {
   for (const type of ['qb', 'tr'] as ClientType[]) {
@@ -43,75 +43,40 @@ const ensureIcons = async () => {
   }
 };
 
-const SettingField = ({ icon, color, prompt, value, onChanged }: {
-  icon: string; color: SystemColor; prompt: string; value: string; onChanged: (v: string) => void;
-}) => (
-  <HStack spacing={12} alignment="center">
-    <Image systemName={icon} foregroundStyle={color} font={18} />
-    <TextField title="" prompt={prompt} value={value} onChanged={onChanged} frame={{ maxWidth: "infinity" }} />
-  </HStack>
-);
-
-const SecureSettingField = ({ icon, color, prompt, value, onChanged }: {
-  icon: string; color: SystemColor; prompt: string; value: string; onChanged: (v: string) => void;
-}) => (
-  <HStack spacing={12} alignment="center">
-    <Image systemName={icon} foregroundStyle={color} font={18} />
-    <SecureField title="" prompt={prompt} value={value} onChanged={onChanged} />
-  </HStack>
-);
-
-const ToggleSwitch = ({ visible }: { visible: boolean }) => (
-  <HStack frame={{ width: 44, height: 26 }} background={visible ? "systemGreen" : "systemFill" as Color} clipShape={{ type: 'rect', cornerRadius: 13 }} padding={2}>
-    {visible ? <Spacer /> : null}
-    <VStack frame={{ width: 22, height: 22 }} background="white" clipShape={{ type: 'rect', cornerRadius: 11 }} shadow={{ color: "#00000026" as Color, radius: 1, y: 1 }} />
-    {!visible ? <Spacer /> : null}
-  </HStack>
-);
-
-const StatusBadge = ({ saved, hasChanges, isConfigured, onSave }: {
-  saved: boolean; hasChanges: boolean; isConfigured: boolean; onSave: () => void;
+const SettingField = ({ icon, color, prompt, value, onChanged, secure }: {
+  icon: string;
+  color: Color;
+  prompt: string;
+  value: string;
+  onChanged: (v: string) => void;
+  secure?: boolean;
 }) => {
-  if (hasChanges && isConfigured) {
-    return (
-      <Button buttonStyle="plain" action={onSave}>
-        <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background="systemBlue" clipShape={{ type: 'rect', cornerRadius: 6 }}>
-          <Image systemName="checkmark" foregroundStyle="white" font={12} />
-          <Text font={13} foregroundStyle="white" fontWeight="medium">保存</Text>
-        </HStack>
-      </Button>
-    );
-  }
-  
-  if (saved && !hasChanges) {
-    return (
-      <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background="systemGreen" clipShape={{ type: 'rect', cornerRadius: 6 }}>
-        <Image systemName="checkmark" foregroundStyle="white" font={12} />
-        <Text font={13} foregroundStyle="white" fontWeight="medium">已保存</Text>
-      </HStack>
-    );
-  }
-  
-  if (!isConfigured) {
-    return (
-      <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background={"#FF3B30" as Color} clipShape={{ type: 'rect', cornerRadius: 6 }}>
-        <Image systemName="xmark" foregroundStyle="white" font={12} />
-        <Text font={13} foregroundStyle="white" fontWeight="medium">未配置</Text>
-      </HStack>
-    );
-  }
-  
+  const fieldProps = {
+    title: "",
+    prompt,
+    value,
+    onChanged,
+    frame: { maxWidth: "infinity" as const },
+    foregroundStyle: Neon.text,
+    tint: Neon.cyan,
+  };
   return (
-    <Button buttonStyle="plain" action={onSave}>
-      <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background="systemBlue" clipShape={{ type: 'rect', cornerRadius: 6 }}>
-        <Image systemName="checkmark" foregroundStyle="white" font={12} />
-        <Text font={13} foregroundStyle="white" fontWeight="medium">保存</Text>
-      </HStack>
-    </Button>
+    <HStack spacing={Spacing.md} alignment="center">
+      <Image systemName={icon} foregroundStyle={color} font={FontSize.body + 1} frame={{ width: 24 }} />
+      {secure ? <SecureField {...fieldProps} /> : <TextField {...fieldProps} />}
+    </HStack>
   );
 };
 
-function ClientItem({ config, onUpdate, onReset }: {
+const ClientIcon = ({ type, size = 18 }: { type: ClientType; size?: number }) => {
+  const path = getIconPath(type);
+  if (FileManager.existsSync(path)) {
+    return <Image filePath={path} frame={{ width: size, height: size }} clipShape={{ type: 'rect', cornerRadius: size * 0.22 }} resizable />;
+  }
+  return <Image systemName={type === 'qb' ? 'q.circle.fill' : 't.circle.fill'} frame={{ width: size, height: size }} foregroundStyle={Neon.cyan} />;
+};
+
+function ClientEditor({ config, onUpdate, onReset }: {
   config: ClientConfig | null; onUpdate: (config: ClientConfig) => void; onReset: () => void;
 }) {
   const [alias, setAlias] = useState(config?.alias || '');
@@ -130,13 +95,13 @@ function ClientItem({ config, onUpdate, onReset }: {
     setSaved(!!(config?.url && config?.username && config?.password));
   }, [config]);
 
-  const hasChanges = useMemo(() => {
-    return alias !== (config?.alias || '') ||
-           url !== (config?.url || '') ||
-           username !== (config?.username || '') ||
-           password !== (config?.password || '') ||
-           visible !== (config?.visible ?? false);
-  }, [alias, url, username, password, visible, config]);
+  const hasChanges = useMemo(() =>
+    alias !== (config?.alias || '') ||
+    url !== (config?.url || '') ||
+    username !== (config?.username || '') ||
+    password !== (config?.password || '') ||
+    visible !== (config?.visible ?? false),
+  [alias, url, username, password, visible, config]);
 
   const isConfigured = useMemo(() => !!(url && username && password), [url, username, password]);
 
@@ -145,38 +110,49 @@ function ClientItem({ config, onUpdate, onReset }: {
     setSaved(true);
   }, [url, username, password, alias, visible, onUpdate]);
 
-  const handleFieldChange = useCallback((setter: (v: string) => void) => (v: string) => {
+  const bindText = useCallback((setter: (v: string) => void) => (v: string) => {
     setter(v);
     setSaved(false);
   }, []);
 
-  const handleToggleVisible = useCallback(() => {
-    setVisible(v => !v);
+  const bindVisible = useCallback((v: boolean) => {
+    setVisible(v);
     setSaved(false);
   }, []);
 
+  const statusText = hasChanges && isConfigured ? 'UNSAVED'
+    : !isConfigured ? 'INCOMPLETE'
+    : saved ? 'SAVED' : '';
+  const statusColor: Color = hasChanges && isConfigured ? Colors.warning
+    : !isConfigured ? Colors.danger
+    : Colors.success;
+
   return (
-    <VStack spacing={10} padding={{ vertical: 8 }}>
-      <HStack spacing={8} alignment="center">
-        <Image systemName="eye" foregroundStyle="systemBlue" font={14} />
-        <Text font={14}>在小组件中显示</Text>
+    <VStack spacing={0}>
+      <Toggle value={visible} onChanged={bindVisible}>
+        <HStack spacing={Spacing.sm}>
+          <Image systemName="eye" foregroundStyle={Neon.cyan} font={FontSize.body} />
+          <Text foregroundStyle={Neon.text}>在小组件中显示</Text>
+        </HStack>
+      </Toggle>
+      <SettingField icon="tag" color={Colors.info} prompt="别名（可选）" value={alias} onChanged={bindText(setAlias)} />
+      <SettingField icon="server.rack" color={Colors.brand} prompt="http://192.168.1.1:8080" value={url} onChanged={bindText(setUrl)} />
+      <SettingField icon="person.fill" color={Colors.success} prompt="用户名" value={username} onChanged={bindText(setUsername)} />
+      <SettingField icon="lock.fill" color={Colors.warning} prompt="密码" value={password} onChanged={bindText(setPassword)} secure />
+
+      <HStack spacing={Spacing.sm} padding={{ vertical: 4 }}>
+        {statusText ? <Text font={FontSize.footnote} foregroundStyle={statusColor}>{statusText}</Text> : null}
         <Spacer />
-        <Button buttonStyle="plain" action={handleToggleVisible}>
-          <ToggleSwitch visible={visible} />
+        <Button action={handleSave} disabled={!isConfigured || !hasChanges}>
+          <HStack spacing={4}>
+            <Image systemName="checkmark" foregroundStyle={Neon.lime} />
+            <Text foregroundStyle={Neon.lime} fontWeight="semibold">保存</Text>
+          </HStack>
         </Button>
-      </HStack>
-
-      <SettingField icon="tag" color="systemPurple" prompt="别名（可选）" value={alias} onChanged={handleFieldChange(setAlias)} />
-      <SettingField icon="server.rack" color="systemBlue" prompt="http://192.168.1.1:8080" value={url} onChanged={handleFieldChange(setUrl)} />
-      <SettingField icon="person.fill" color="systemGreen" prompt="用户名" value={username} onChanged={handleFieldChange(setUsername)} />
-      <SecureSettingField icon="lock.fill" color="systemOrange" prompt="密码" value={password} onChanged={handleFieldChange(setPassword)} />
-
-      <HStack spacing={8} alignment="center">
-        <StatusBadge saved={saved} hasChanges={hasChanges} isConfigured={isConfigured} onSave={handleSave} />
-        <Button buttonStyle="plain" action={onReset}>
-          <HStack spacing={4} padding={{ horizontal: 12, vertical: 8 }} background="systemGray" clipShape={{ type: 'rect', cornerRadius: 6 }}>
-            <Image systemName="arrow.counterclockwise" foregroundStyle="white" font={12} />
-            <Text font={13} foregroundStyle="white" fontWeight="medium">重置</Text>
+        <Button role="destructive" action={onReset}>
+          <HStack spacing={4}>
+            <Image systemName="arrow.counterclockwise" foregroundStyle={Neon.magenta} />
+            <Text foregroundStyle={Neon.magenta} fontWeight="semibold">重置</Text>
           </HStack>
         </Button>
       </HStack>
@@ -184,43 +160,35 @@ function ClientItem({ config, onUpdate, onReset }: {
   );
 }
 
-const ClientIcon = ({ type, size = 16 }: { type: ClientType; size?: number }) => {
-  const path = getIconPath(type);
-  if (FileManager.existsSync(path)) {
-    return <Image filePath={path} frame={{ width: size, height: size }} clipShape={{ type: 'rect', cornerRadius: size * 0.2 }} resizable />;
-  }
-  return <Image systemName={type === 'qb' ? 'q.circle.fill' : 't.circle.fill'} frame={{ width: size, height: size }} foregroundStyle="systemBlue" />;
-};
-
 export function SettingsPage({ onConfigSaved, initialConfig, onBack, onReset }: SettingsPageProps) {
   const [multiConfig, setMultiConfigState] = useState<MultiClientConfig>(getMultiClientConfig);
   const [currentType, setCurrentType] = useState<ClientType>('qb');
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
-  const [refreshMinutes, setRefreshMinutes] = useState(initialConfig?.refreshMinutes ?? DEFAULT_REFRESH);
+  const [refreshMinutes, setRefreshMinutes] = useState(initialConfig?.refreshMinutes ?? DEFAULT_REFRESH_MINUTES);
 
   useEffect(() => { ensureIcons(); }, []);
 
-  const handleUpdateClient = useCallback((type: ClientType, index: number, config: ClientConfig) => {
+  const handleUpdateClient = useCallback((type: ClientType, index: number, cfg: ClientConfig) => {
     setMultiConfigState(prev => {
-      const newConfig = { ...prev };
-      newConfig[type][index] = config;
-      newConfig.activeClient = { type, index };
-      setMultiClientConfig(newConfig);
+      const next = { ...prev };
+      next[type][index] = cfg;
+      next.activeClient = { type, index };
+      setMultiClientConfig(next);
       Widget.reloadUserWidgets();
-      return newConfig;
+      return next;
     });
   }, []);
 
   const handleResetClient = useCallback((type: ClientType, index: number) => {
     setMultiConfigState(prev => {
-      const newConfig = { ...prev };
-      newConfig[type][index] = null;
-      if (newConfig.activeClient?.type === type && newConfig.activeClient?.index === index) {
-        newConfig.activeClient = { type: 'qb', index: 0 };
+      const next = { ...prev };
+      next[type][index] = null;
+      if (next.activeClient?.type === type && next.activeClient?.index === index) {
+        next.activeClient = { type: 'qb', index: 0 };
       }
-      setMultiClientConfig(newConfig);
+      setMultiClientConfig(next);
       Widget.reloadUserWidgets();
-      return newConfig;
+      return next;
     });
   }, []);
 
@@ -234,123 +202,185 @@ export function SettingsPage({ onConfigSaved, initialConfig, onBack, onReset }: 
         password: activeConfig.password,
         refreshMinutes,
         clientType: active.type,
-        clientIndex: active.index
+        clientIndex: active.index,
       });
     }
     await Widget.reloadUserWidgets();
   }, [multiConfig, refreshMinutes, onConfigSaved]);
 
-  const handleResetAll = useCallback(() => {
-    const newConfig = getDefaultMultiConfig();
-    setMultiConfigState(newConfig);
+  const handleResetAll = useCallback(async () => {
+    const idx = await Dialog.actionSheet({
+      title: "重置所有配置",
+      message: "将清空所有客户端配置信息，此操作不可撤销。",
+      actions: [{ label: "重置", destructive: true }],
+    });
+    if (idx !== 0) return;
+    const fresh = getDefaultMultiConfig();
+    setMultiConfigState(fresh);
     resetAllConfig();
     onReset?.();
   }, [onReset]);
 
-  const handleTypeChange = useCallback((type: ClientType) => {
-    setCurrentType(type);
-    setExpandedIndex(null);
-  }, []);
-
-  const handleToggleExpand = useCallback((i: number) => {
-    setExpandedIndex(prev => prev === i ? null : i);
-  }, []);
-
   const clientName = currentType === 'qb' ? 'qBittorrent' : 'Transmission';
-
-  const tabHeader = useMemo(() => (
-    <HStack spacing={0} frame={{ maxWidth: Infinity }} background="systemFill" clipShape={{ type: 'rect', cornerRadius: 9 }} padding={2}>
-      {(['qb', 'tr'] as ClientType[]).map(type => (
-        <Button key={type} buttonStyle="plain" action={() => handleTypeChange(type)}>
-          <HStack spacing={6} padding={{ vertical: 6 }} frame={{ maxWidth: Infinity }}
-            background={currentType === type ? "secondarySystemGroupedBackground" : "clear" as Color}
-            clipShape={{ type: 'rect', cornerRadius: 7 }}
-            shadow={currentType === type ? { color: "#00000026" as Color, radius: 2, y: 1 } : undefined}>
-            <ClientIcon type={type} size={16} />
-            <Text font={13} fontWeight={currentType === type ? "semibold" : "medium"} foregroundStyle="label" textCase={null}>
-              {type === 'qb' ? 'qBittorrent' : 'Transmission'}
-            </Text>
-          </HStack>
-        </Button>
-      ))}
-    </HStack>
-  ), [currentType, handleTypeChange]);
-
-  const clientItems = useMemo(() => (
-    Array.from({ length: CLIENT_COUNT }, (_, i) => {
-      const cfg = multiConfig[currentType][i];
-      const name = cfg?.alias || `${clientName} ${i + 1}`;
-      const isConfigured = !!(cfg?.url && cfg?.username && cfg?.password);
-      return (
-        <VStack key={`${currentType}-${i}`} spacing={0}>
-          <HStack
-            padding={{ vertical: 10 }}
-            frame={{ maxWidth: Infinity }}
-            contentShape="rect"
-            gesture={{ gesture: TapGesture().onEnded(() => handleToggleExpand(i)), mask: 'gesture' }}
-          >
-            <ClientIcon type={currentType} size={18} />
-            <Text font={15} fontWeight="medium" padding={{ leading: 8 }}>{name}</Text>
-            <Spacer />
-            <Text font={13} foregroundStyle={isConfigured ? "systemGreen" : "secondaryLabel"}>{isConfigured ? "已配置" : "未配置"}</Text>
-            <Image systemName={expandedIndex === i ? "chevron.up" : "chevron.down"} foregroundStyle="tertiaryLabel" font={12} padding={{ leading: 8 }} />
-          </HStack>
-          {expandedIndex === i ? (
-            <ClientItem
-              config={cfg}
-              onUpdate={(c) => handleUpdateClient(currentType, i, c)}
-              onReset={() => handleResetClient(currentType, i)}
-            />
-          ) : null}
-        </VStack>
-      );
-    })
-  ), [multiConfig, currentType, clientName, expandedIndex, handleToggleExpand, handleUpdateClient, handleResetClient]);
-
-  const refreshSection = useMemo(() => (
-    <HStack spacing={12} alignment="center">
-      <Image systemName="clock.fill" foregroundStyle="systemPurple" font={18} />
-      <Picker title="刷新间隔" pickerStyle="menu" value={refreshMinutes} onChanged={setRefreshMinutes} frame={{ maxWidth: "infinity" }}>
-        <Text tag={0}>自动</Text>
-        <Text tag={5}>5 分钟</Text>
-        <Text tag={10}>10 分钟</Text>
-        <Text tag={15}>15 分钟</Text>
-        <Text tag={30}>30 分钟</Text>
-      </Picker>
-    </HStack>
-  ), [refreshMinutes]);
-
-  const dangerSection = useMemo(() => onReset ? (
-    <Section header={<Text>危险操作</Text>} footer={<Text>清空所有客户端配置信息，此操作不可撤销</Text>}>
-      <HStack
-        padding={{ vertical: 14 }}
-        frame={{ maxWidth: Infinity }}
-        contentShape="rect"
-        gesture={{ gesture: TapGesture().onEnded(handleResetAll), mask: 'gesture' }}
-      >
-        <HStack frame={{ width: 32, height: 32 }} background={"#FF3B30" as Color} clipShape={{ type: 'rect', cornerRadius: 7 }}>
-          <Image systemName="arrow.counterclockwise" foregroundStyle="white" font={16} />
-        </HStack>
-        <Text padding={{ leading: 12 }} font={17} foregroundStyle="#FF3B30">重置所有配置</Text>
-        <Spacer />
-      </HStack>
-    </Section>
-  ) : null, [onReset, handleResetAll]);
+  const sectionHeader = (t: string) => <Text foregroundStyle={Neon.cyan}>{sectionLabel(t)}</Text>;
 
   return (
-    <List navigationTitle="设置" toolbar={{
-      topBarLeading: onBack ? <Button title="返回" systemImage="chevron.left" action={onBack} /> : undefined,
-      topBarTrailing: <Button title="保存" action={handleSave} />
-    }}>
-      <Section header={tabHeader} footer={<Text>选择客户端类型，点击展开配置</Text>}>
-        {clientItems}
-      </Section>
+    <CyberBackground>
+      <List
+        listStyle="insetGroup"
+        scrollContentBackground="hidden"
+        tint={Neon.cyan}
+        fontDesign={FontDesign}
+        foregroundStyle={Neon.text}
+        navigationTitle=""
+        navigationBarTitleDisplayMode="inline"
+        toolbar={{
+          topBarLeading: onBack
+            ? (
+              <Button action={onBack} buttonStyle="plain">
+                <HStack spacing={2}>
+                  <Image systemName="chevron.left" font={15} fontWeight="semibold" foregroundStyle={Neon.cyan} />
+                  <Text foregroundStyle={Neon.cyan}>返回</Text>
+                </HStack>
+              </Button>
+            )
+            : undefined,
+          topBarTrailing: (
+            <Button action={handleSave}>
+              <Text foregroundStyle={Neon.cyan} fontWeight="semibold">保存</Text>
+            </Button>
+          ),
+        }}
+      >
+        {/* 自绘大标题 */}
+        <Section listRowBackground={rowBg()}>
+          <VStack spacing={2} alignment="leading" padding={{ vertical: Spacing.xs }} frame={{ maxWidth: "infinity" }}>
+            <Text font="largeTitle" fontWeight="bold" foregroundStyle={Neon.cyan} shadow={{ color: Neon.cyan, radius: 10 }}>SETTINGS</Text>
+            <Text font={FontSize.caption} foregroundStyle={Neon.magenta}>SYSTEM CONFIGURATION</Text>
+          </VStack>
+        </Section>
+        {/* 客户端类型切换 */}
+        <Section listRowBackground={rowBg()} header={sectionHeader('客户端类型')}>
+          <HStack spacing={Spacing.sm} frame={{ maxWidth: "infinity" }} padding={{ vertical: 4 }}>
+            {(['qb', 'tr'] as ClientType[]).map((t) => {
+              const isActive = currentType === t;
+              const label = t === 'qb' ? 'qBittorrent' : 'Transmission';
+              return (
+                <Button
+                  key={t}
+                  action={() => { setCurrentType(t); setExpandedIndex(null); }}
+                  buttonStyle="plain"
+                  frame={{ maxWidth: "infinity" }}
+                >
+                  <HStack
+                    spacing={6}
+                    alignment="center"
+                    padding={{ vertical: 8, horizontal: 10 }}
+                    frame={{ maxWidth: "infinity" }}
+                    background={isActive ? Neon.cyan : Neon.surface}
+                    clipShape={{ type: 'rect', cornerRadius: 8 }}
+                    overlay={{
+                      alignment: 'center',
+                      content: <VStack
+                        frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
+                        border={{ style: isActive ? Neon.cyan : Neon.border, width: 1 }}
+                        clipShape={{ type: 'rect', cornerRadius: 8 }}
+                      />,
+                    }}
+                  >
+                    <ClientIcon type={t} size={16} />
+                    <Text
+                      foregroundStyle={isActive ? Neon.bg : Neon.text}
+                      fontWeight={isActive ? "bold" : "regular"}
+                    >{label}</Text>
+                  </HStack>
+                </Button>
+              );
+            })}
+          </HStack>
+        </Section>
 
-      <Section header={<Text>小组件设置</Text>} footer={<Text>实际刷新频率由系统决定</Text>}>
-        {refreshSection}
-      </Section>
+        {/* 客户端列表 */}
+        <Section
+          listRowBackground={rowBg()}
+          header={sectionHeader(`${clientName} 客户端`)}
+          footer={<Text foregroundStyle={Neon.textFade}>点击卡片编辑客户端配置</Text>}
+        >
+          {Array.from({ length: CLIENT_COUNT }, (_, i) => {
+            const cfg = multiConfig[currentType][i];
+            const name = cfg?.alias || `${clientName} ${i + 1}`;
+            const isConfigured = !!(cfg?.url && cfg?.username && cfg?.password);
+            const isExpanded = expandedIndex === i;
+            return (
+              <VStack key={`${currentType}-${i}`} spacing={0}>
+                <Button buttonStyle="plain" action={() => setExpandedIndex(prev => prev === i ? null : i)}>
+                  <HStack spacing={Spacing.md} padding={{ vertical: 4 }} frame={{ maxWidth: "infinity" }}>
+                    <ClientIcon type={currentType} size={22} />
+                    <Text font={FontSize.body} foregroundStyle={Neon.text}>{name}</Text>
+                    <Spacer />
+                    <Text font={FontSize.footnote} foregroundStyle={isConfigured ? Colors.success : Neon.textFade}>
+                      {isConfigured ? 'READY' : 'EMPTY'}
+                    </Text>
+                    <Image
+                      systemName={isExpanded ? "chevron.up" : "chevron.down"}
+                      foregroundStyle={Neon.textFade}
+                      font={12}
+                      fontWeight="semibold"
+                    />
+                  </HStack>
+                </Button>
+                {isExpanded ? (
+                  <ClientEditor
+                    config={cfg}
+                    onUpdate={(cc) => handleUpdateClient(currentType, i, cc)}
+                    onReset={() => handleResetClient(currentType, i)}
+                  />
+                ) : null}
+              </VStack>
+            );
+          })}
+        </Section>
 
-      {dangerSection}
-    </List>
+        {/* 小组件设置 */}
+        <Section
+          listRowBackground={rowBg()}
+          header={sectionHeader('小组件设置')}
+          footer={<Text foregroundStyle={Neon.textFade}>实际刷新频率由系统决定</Text>}
+        >
+          <Menu
+            label={
+              <HStack spacing={Spacing.sm} frame={{ maxWidth: "infinity" }}>
+                <Image systemName="clock" foregroundStyle={Neon.cyan} />
+                <Text foregroundStyle={Neon.text}>刷新间隔</Text>
+                <Spacer />
+                <Text foregroundStyle={Neon.lime} fontWeight="semibold">{refreshLabel(refreshMinutes)}</Text>
+                <Image systemName="chevron.up.chevron.down" font={FontSize.caption} foregroundStyle={Neon.cyan} />
+              </HStack>
+            }
+          >
+            <Button action={() => setRefreshMinutes(0)}><Text>自动</Text></Button>
+            <Button action={() => setRefreshMinutes(5)}><Text>5 分钟</Text></Button>
+            <Button action={() => setRefreshMinutes(10)}><Text>10 分钟</Text></Button>
+            <Button action={() => setRefreshMinutes(15)}><Text>15 分钟</Text></Button>
+            <Button action={() => setRefreshMinutes(30)}><Text>30 分钟</Text></Button>
+          </Menu>
+        </Section>
+
+        {/* 危险操作 */}
+        {onReset ? (
+          <Section
+            listRowBackground={rowBg()}
+            footer={<Text foregroundStyle={Neon.textFade}>操作不可恢复</Text>}
+          >
+            <Button role="destructive" action={handleResetAll}>
+              <HStack spacing={Spacing.sm}>
+                <Image systemName="arrow.counterclockwise" foregroundStyle={Neon.magenta} />
+                <Text foregroundStyle={Neon.magenta} fontWeight="semibold">RESET ALL</Text>
+              </HStack>
+            </Button>
+          </Section>
+        ) : null}
+      </List>
+    </CyberBackground>
   );
 }

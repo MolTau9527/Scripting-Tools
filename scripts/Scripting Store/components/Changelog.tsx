@@ -1,9 +1,13 @@
-import { Button, HStack, Navigation, ScrollView, Spacer, Text, VStack } from 'scripting'
-import { type ThemeMode, getThemeColors, getActualThemeMode, getGradientBackground } from '../utils/theme'
+import { HStack, Navigation, Text, ScrollView, VStack } from 'scripting'
+import { useTheme } from '../contexts/ThemeContext'
+import { spacing, fontSize } from '../utils/styles'
+import { ContentCard } from './common/ContentCard'
+import { NavigationAction } from './common/NavigationAction'
+import { PageHeader } from './common/PageHeader'
 
-interface ChangelogProps {
-  themeMode: ThemeMode
-}
+// ============================================================
+// Types
+// ============================================================
 
 interface ChangelogEntry {
   version: string
@@ -11,6 +15,7 @@ interface ChangelogEntry {
   changes: string[]
 }
 
+// 按版本从旧到新维护；渲染时从末尾向前遍历，避免每次渲染 `.reverse()` 复制数组。
 const changelog: ChangelogEntry[] = [
   {
     version: '1.0.0',
@@ -39,44 +44,75 @@ const changelog: ChangelogEntry[] = [
     changes: [
       '支持 SF Symbol显示',
     ]
+  },
+  {
+    version: '2.0.0',
+    date: '2026-01-30',
+    changes: [
+      '新增最新区',
+    ]
+  },
+  {
+    version: '2.0.1',
+    date: '2026-04-23',
+    changes: [
+      '优化一些BUG',
+    ]
   }
 ]
 
-export const Changelog = ({ themeMode }: ChangelogProps) => {
+// 渲染时使用新→旧顺序；预计算避免每次渲染复制。
+const changelogNewestFirst: ChangelogEntry[] = [...changelog].reverse()
+
+// ============================================================
+// Component
+// ============================================================
+
+export const Changelog = () => {
   const dismiss = Navigation.useDismiss()
-  const actualTheme = getActualThemeMode(themeMode)
-  const colors = getThemeColors(themeMode)
-  const gradientBg = getGradientBackground(themeMode)
+  const { actualMode, colors } = useTheme()
 
   return (
-    <VStack frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }} background={gradientBg} preferredColorScheme={actualTheme}>
-      <HStack padding={16} background={colors.cardBackground} alignment="center">
-        <Button action={() => dismiss()}>
-          <Text font={16} foregroundStyle={colors.buttonPrimary}>返回</Text>
-        </Button>
-        <Spacer />
-        <Text font={17} fontWeight="semibold" foregroundStyle={colors.textPrimary}>更新日志</Text>
-        <Spacer />
-        <VStack frame={{ width: 50 }} />
-      </HStack>
+    <VStack
+      frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }}
+      background={colors.secondaryBackground}
+      preferredColorScheme={actualMode}
+    >
+      <PageHeader
+        title="更新日志"
+        leading={<NavigationAction type="back" onPress={() => dismiss()} />}
+      />
 
       <ScrollView>
-        <VStack padding={16} spacing={16}>
-          {[...changelog].reverse().map((entry, index) => (
-            <VStack key={index} padding={20} background={colors.cardBackground} clipShape={{ type: 'rect', cornerRadius: 12 }} spacing={12} alignment="leading">
-              <HStack alignment="center" spacing={8}>
-                <Text font={18} fontWeight="bold" foregroundStyle={colors.buttonPrimary}>v{entry.version}</Text>
-                <Text font={13} foregroundStyle={colors.textTertiary}>{entry.date}</Text>
+        <VStack padding={spacing.lg} spacing={spacing.lg}>
+          {changelogNewestFirst.map((entry) => (
+            <ContentCard
+              key={`${entry.version}-${entry.date}`}
+              alignment="leading"
+            >
+              <HStack alignment="center" spacing={spacing.sm}>
+                <Text font={fontSize.title3} fontWeight="bold" foregroundStyle={colors.tint}>
+                  v{entry.version}
+                </Text>
+                <Text font={fontSize.footnote} foregroundStyle={colors.tertiaryLabel}>
+                  {entry.date}
+                </Text>
               </HStack>
-              <VStack spacing={8} alignment="leading">
-                {entry.changes.map((change, changeIndex) => (
-                  <HStack key={changeIndex} spacing={8} alignment="top">
-                    <Text font={14} foregroundStyle={colors.buttonSuccess}>•</Text>
-                    <Text font={14} foregroundStyle={colors.textSecondary} frame={{ maxWidth: 'infinity', alignment: 'leading' }}>{change}</Text>
+              <VStack spacing={spacing.sm} alignment="leading">
+                {entry.changes.map((change) => (
+                  <HStack key={`${entry.version}-${change}`} spacing={spacing.sm} alignment="top">
+                    <Text font={fontSize.subheadline} foregroundStyle={colors.systemGreen}>•</Text>
+                    <Text
+                      font={fontSize.subheadline}
+                      foregroundStyle={colors.secondaryLabel}
+                      frame={{ maxWidth: 'infinity', alignment: 'leading' }}
+                    >
+                      {change}
+                    </Text>
                   </HStack>
                 ))}
               </VStack>
-            </VStack>
+            </ContentCard>
           ))}
         </VStack>
       </ScrollView>

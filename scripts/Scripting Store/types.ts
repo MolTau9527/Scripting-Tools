@@ -29,6 +29,7 @@ export interface SubmitPluginData {
   name: string
   description: string
   icon: string
+  symbol?: string
   author: string
   url: string
 }
@@ -38,6 +39,5 @@ export interface UserSettings {
   repoUrl: string
   avatar: string
   applyAuthorToPublish: boolean
-  followedAuthors: string[]
   followedPlugins: string[]
 }

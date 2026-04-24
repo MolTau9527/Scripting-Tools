@@ -1,6 +1,5 @@
 import { fetch } from "scripting";
-import { ConfigData } from '../public/storage';
-import { ClientData } from '../public/types';
+import { ConfigData, ClientData } from '../public/types';
 
 export const TR_SESSION_KEY = 'trSession';
 
@@ -88,7 +87,8 @@ export const fetchTrData = async (config: ConfigData): Promise<ClientData | null
       downloadingSeeds: torrents.filter(t => isDownloading(t.status)).length,
       uploadingSeeds: torrents.filter(t => isUploading(t.status)).length,
     };
-  } catch {
+  } catch (e) {
+    console.log('[tr] fetchTrData error:', e);
     return null;
   }
 };

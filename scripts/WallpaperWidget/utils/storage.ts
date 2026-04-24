@@ -1,44 +1,42 @@
 import { Path } from "scripting";
 import { ACGConfig } from "./types";
-
-type Data = {
-  toRawString(encoding: string): string | null;
-};
-
-declare const Data: {
-  fromFile(path: string): Data | null;
-  fromRawString(content: string, encoding: string): Data | null;
-};
-
-declare const FileEntity: {
-  openNewForWriting(path: string): {
-    write(data: Data): void;
-    close(): void;
-  };
-};
-
-declare const FileManager: {
-  appGroupDocumentsDirectory: string;
-};
+import { CONFIG_FILE_NAME } from "./utils";
 
 const CONFIG_FILE = Path.join(
-  FileManager.appGroupDocumentsDirectory, 
-  "acg_widget_config.json"
+  FileManager.appGroupDocumentsDirectory,
+  CONFIG_FILE_NAME
 );
 
+/**
+ * 读取配置；返回 null 表示尚未写入或读取失败。
+ * 兼容旧版 `isAutoRefreshing: 0 | 1`，统一归一化为 boolean。
+ */
 export const loadConfig = (): ACGConfig | null => {
   try {
-    const data = Data.fromFile(CONFIG_FILE);
-    if (!data) {
+    if (!FileManager.existsSync(CONFIG_FILE)) {
       return null;
     }
-
-    const configStr = data.toRawString("utf-8");
+    const configStr = FileManager.readAsStringSync(CONFIG_FILE);
     if (!configStr) {
       return null;
     }
-
-    return JSON.parse(configStr);
+    const raw = JSON.parse(configStr) as {
+      imageId?: unknown;
+      refreshInterval?: unknown;
+      isAutoRefreshing?: unknown;
+    };
+    return {
+      // 历史版本可能把 imageId / refreshInterval 存成 number，统一转成字符串
+      imageId: raw.imageId == null ? "" : String(raw.imageId),
+      refreshInterval:
+        raw.refreshInterval == null ? "" : String(raw.refreshInterval),
+      // 兼容历史 0/1 数字与 "true"/"false" 字符串存储
+      isAutoRefreshing:
+        raw.isAutoRefreshing === true ||
+        raw.isAutoRefreshing === 1 ||
+        raw.isAutoRefreshing === "true" ||
+        raw.isAutoRefreshing === "1",
+    };
   } catch (error) {
     console.error("读取配置文件失败:", error);
     return null;
@@ -47,18 +45,7 @@ export const loadConfig = (): ACGConfig | null => {
 
 export const saveConfig = (config: ACGConfig): void => {
   try {
-    const configStr = JSON.stringify(config);
-    const data = Data.fromRawString(configStr, "utf-8");
-    
-    if (!data) {
-      throw new Error("无法创建配置数据");
-    }
-
-    const file = FileEntity.openNewForWriting(CONFIG_FILE);
-    file.write(data);
-    file.close();
-    
-    console.log("配置保存成功");
+    FileManager.writeAsStringSync(CONFIG_FILE, JSON.stringify(config));
   } catch (error) {
     console.error("保存配置失败:", error);
     throw error;

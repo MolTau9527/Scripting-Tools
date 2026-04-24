@@ -1,39 +1,53 @@
-import { useObservable, useEffect, VStack, HStack, Text, List, Section, NavigationStack, Navigation, Widget, Image, Spacer, TapGesture, Color } from "scripting";
+import { useObservable, useEffect, useRef, VStack, HStack, Text, List, Section, NavigationStack, Navigation, Widget, Image, Spacer, Button, Color } from "scripting";
 import { SettingsPage } from '../../pages/SettingsPage';
-import { ClientData, HistoryPoint } from './types';
-import { updateHistory, getConfig, setConfig, getQbitHelperData, resetAllConfig, getCacheKey, DEFAULT_REFRESH_MINUTES, ConfigData } from './storage';
+import { ClientData, HistoryPoint, ConfigData } from './types';
+import { updateHistory, getConfig, setConfig, getQbitHelperData, resetAllConfig, getCacheKey, DEFAULT_REFRESH_MINUTES } from './storage';
+import { Colors, Spacing, FontSize, Neon, FontDesign } from './theme';
+import { NeonIcon, CyberBackground, rowBg, sectionLabel } from './cyber';
 import { fetchData, clearSession } from '../api';
 
 const isValidConfig = (cfg: ConfigData | null): cfg is ConfigData =>
   !!(cfg?.url && cfg?.username && cfg?.password);
 
-const RowIcon = ({ name, color }: { name: string; color: Color }) => (
-  <HStack frame={{ width: 32, height: 32 }} background={color} clipShape={{ type: 'rect', cornerRadius: 7 }}>
-    <Image systemName={name} foregroundStyle="white" font={16} />
-  </HStack>
-);
+function SettingsRow({ icon, color, title, onTap, showArrow = true, trailing }: {
+  icon: string; color: Color; title: string; onTap: () => void; showArrow?: boolean; trailing?: any;
+}) {
+  return (
+    <Button action={onTap} buttonStyle="plain">
+      <HStack spacing={Spacing.md} padding={{ vertical: 4 }} frame={{ maxWidth: "infinity" }}>
+        <NeonIcon name={icon} color={color} />
+        <Text font={FontSize.headline} foregroundStyle={Neon.text}>{title}</Text>
+        <Spacer />
+        {trailing}
+        {showArrow ? (
+          <Image systemName="chevron.right" foregroundStyle={Neon.cyan} font={13} fontWeight="semibold" opacity={0.6} />
+        ) : null}
+      </HStack>
+    </Button>
+  );
+}
 
-const ActionRow = ({ icon, color, title, onTap, showArrow = true, trailing }: {
-  icon: string; color: Color; title: string; onTap: () => void; showArrow?: boolean; trailing?: any
-}) => (
-  <HStack
-    padding={{ vertical: 14 }}
-    frame={{ maxWidth: Infinity }}
-    contentShape="rect"
-    gesture={{ gesture: TapGesture().onEnded(onTap), mask: 'gesture' }}
-  >
-    <RowIcon name={icon} color={color} />
-    <Text padding={{ leading: 12 }} font={17}>{title}</Text>
-    <Spacer />
-    {trailing}
-    {showArrow && <Image systemName="chevron.right" foregroundStyle="tertiaryLabel" font={14} fontWeight="semibold" />}
-  </HStack>
-);
+function StatusSection({ icon, iconColor, title, message }: {
+  icon: string; iconColor: Color; title: string; message: string;
+}) {
+  return (
+    <Section listRowBackground={rowBg()}>
+      <HStack spacing={Spacing.md} padding={{ vertical: 6 }}>
+        <NeonIcon name={icon} color={iconColor} />
+        <VStack spacing={2} alignment="leading" frame={{ maxWidth: "infinity" }}>
+          <Text font={FontSize.headline} fontWeight="semibold" foregroundStyle={Neon.text}>{title}</Text>
+          <Text font={FontSize.footnote} foregroundStyle={Neon.textDim}>{message}</Text>
+        </VStack>
+      </HStack>
+    </Section>
+  );
+}
 
 const CHANGELOG = [
+  { version: "1.0.7", date: "2026-04-24", changes: ["全赛博朋克霓虹风皮肤", "强制深色主题 + 等宽字体", "霓虹描边 / 发光 / 渐变底"] },
   { version: "1.0.6", date: "2025-12-17", changes: ["优化组件渲染速度"] },
   { version: "1.0.5", date: "2025-12-17", changes: ["优化底部切换按钮，使用图标直接切换", "合并组件预览为单个选项", "新增更新日志功能"] },
-  { version: "1.0.0", date: "2025-12-10", changes: ["支持 qBittorrent 和 Transmission", "支持多客户端配置", "小组件显示上传/下载统计", "支持自定义刷新间隔"] }
+  { version: "1.0.0", date: "2025-12-10", changes: ["支持 qBittorrent 和 Transmission", "支持多客户端配置", "小组件显示上传/下载统计", "支持自定义刷新间隔"] },
 ];
 
 export default function Helper() {
@@ -51,7 +65,7 @@ export default function Helper() {
     const selectedIndex = await Dialog.actionSheet({
       title: "重新配置",
       message: "确定要清空所有服务器配置信息吗？此操作不可撤销。",
-      actions: [{ label: "确认", destructive: true }]
+      actions: [{ label: "确认", destructive: true }],
     });
     if (selectedIndex === 0) {
       resetAllConfig();
@@ -65,9 +79,11 @@ export default function Helper() {
   };
 
   useEffect(() => {
-    const data = getQbitHelperData();
-    if (isValidConfig(data.config)) config.setValue(data.config);
-    if (data.history) history.setValue(data.history);
+    const saved = getQbitHelperData();
+    if (isValidConfig(saved.config)) config.setValue(saved.config);
+    const key = getCacheKey(saved.config?.clientType ?? 'qb', saved.config?.clientIndex ?? 0);
+    const savedHistory = saved.historyByClient[key];
+    if (savedHistory?.length) history.setValue(savedHistory);
   }, []);
 
   const loadData = async () => {
@@ -85,17 +101,33 @@ export default function Helper() {
     }
   };
 
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelledRef = useRef(false);
+
   useEffect(() => {
     if (!config.value) return;
     loadData();
     const refreshMinutes = config.value.refreshMinutes ?? DEFAULT_REFRESH_MINUTES;
     if (refreshMinutes <= 0) return;
-    let timeoutId: any;
+
+    cancelledRef.current = false;
     const scheduleNext = () => {
-      timeoutId = setTimeout(async () => { await loadData(); scheduleNext(); }, refreshMinutes * 60 * 1000);
+      if (cancelledRef.current) return;
+      timerRef.current = setTimeout(async () => {
+        if (cancelledRef.current) return;
+        await loadData();
+        scheduleNext();
+      }, refreshMinutes * 60 * 1000);
     };
     scheduleNext();
-    return () => clearTimeout(timeoutId);
+
+    return () => {
+      cancelledRef.current = true;
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, [config.value]);
 
   const handleConfigSaved = (newConfig: ConfigData) => {
@@ -106,32 +138,66 @@ export default function Helper() {
     showSettings.setValue(false);
   };
 
+  // 更新日志
   if (showChangelog.value) {
     return (
-      <NavigationStack>
-        <List
-          listStyle="insetGroup"
-          navigationTitle="更新日志"
-          toolbar={{ topBarLeading: <Image systemName="chevron.left" gesture={{ gesture: TapGesture().onEnded(() => showChangelog.setValue(false)), mask: 'gesture' }} /> }}
-        >
-          {CHANGELOG.map((log) => (
-            <Section key={log.version} header={<HStack><Text>{log.version}</Text><Spacer /><Text opacity={0.6}>{log.date}</Text></HStack>}>
-              {log.changes.map((change, idx) => (
-                <HStack key={idx} padding={{ vertical: 8 }}>
-                  <Text font={14}>•</Text>
-                  <Text font={15} padding={{ leading: 8 }}>{change}</Text>
-                </HStack>
-              ))}
+      <NavigationStack preferredColorScheme="dark" foregroundStyle={Neon.text} tint={Neon.cyan}>
+        <CyberBackground>
+          <List
+            listStyle="insetGroup"
+            scrollContentBackground="hidden"
+            tint={Neon.cyan}
+            fontDesign={FontDesign}
+            foregroundStyle={Neon.text}
+            navigationTitle=""
+            navigationBarTitleDisplayMode="inline"
+            toolbar={{
+              topBarLeading: (
+                <Button action={() => showChangelog.setValue(false)} buttonStyle="plain">
+                  <HStack spacing={4}>
+                    <Image systemName="chevron.left" font={17} fontWeight="semibold" foregroundStyle={Neon.cyan} />
+                    <Text foregroundStyle={Neon.cyan} fontWeight="semibold">BACK</Text>
+                  </HStack>
+                </Button>
+              ),
+            }}
+          >
+            <Section listRowBackground={rowBg()}>
+              <HStack spacing={Spacing.sm} alignment="bottom" padding={{ vertical: Spacing.xs }}>
+                <Text font="largeTitle" fontWeight="bold" foregroundStyle={Neon.cyan} shadow={{ color: Neon.cyan, radius: 8 }}>CHANGELOG</Text>
+                <Spacer />
+              </HStack>
             </Section>
-          ))}
-        </List>
+            {CHANGELOG.map((log: any) => (
+              <Section
+                key={log.version}
+                listRowBackground={rowBg()}
+                header={
+                  <HStack>
+                    <Text foregroundStyle={Neon.cyan}>{log.version.toUpperCase()}</Text>
+                    <Spacer />
+                    <Text foregroundStyle={Neon.textDim}>{log.date}</Text>
+                  </HStack>
+                }
+              >
+                {log.changes.map((change: string, idx: number) => (
+                  <HStack key={idx} spacing={Spacing.sm} padding={{ vertical: 4 }} alignment="top">
+                    <Text font={FontSize.body} foregroundStyle={Neon.cyan}>▸</Text>
+                    <Text font={FontSize.body} foregroundStyle={Neon.text}>{change}</Text>
+                  </HStack>
+                ))}
+              </Section>
+            ))}
+          </List>
+        </CyberBackground>
       </NavigationStack>
     );
   }
 
+  // 设置页
   if (showSettings.value) {
     return (
-      <NavigationStack>
+      <NavigationStack preferredColorScheme="dark" foregroundStyle={Neon.text} tint={Neon.cyan}>
         <SettingsPage
           onConfigSaved={handleConfigSaved}
           initialConfig={config.value || undefined}
@@ -142,95 +208,122 @@ export default function Helper() {
     );
   }
 
+  // 主页
   return (
-    <NavigationStack>
-      <List
-        listStyle="insetGroup"
-        navigationTitle="qBitHelper"
-        navigationBarTitleDisplayMode="large"
-        toolbar={{ topBarTrailing: <Image systemName="xmark" gesture={{ gesture: TapGesture().onEnded(dismiss), mask: 'gesture' }} /> }}
-      >
-
-        <Section>
-          <Text font={13} foregroundStyle="secondaryLabel">远程监控 qBittorrent/Transmission 状态的脚本</Text>
-        </Section>
-
-        {!config.value ? (
-          <Section>
-            <VStack spacing={20} alignment="center" padding={{ vertical: 32 }}>
-              <Image systemName="server.rack" foregroundStyle="systemBlue" font="largeTitle" />
-              <VStack spacing={8} alignment="center">
-                <Text font="title2">欢迎使用 qBitHelper</Text>
-                <Text font="subheadline" opacity={0.6}>请先配置您的服务器信息</Text>
-              </VStack>
+    <NavigationStack preferredColorScheme="dark" foregroundStyle={Neon.text} tint={Neon.cyan}>
+      <CyberBackground>
+        <List
+          listStyle="insetGroup"
+          scrollContentBackground="hidden"
+          tint={Neon.cyan}
+          fontDesign={FontDesign}
+          foregroundStyle={Neon.text}
+          navigationTitle=""
+          navigationBarTitleDisplayMode="inline"
+          toolbar={{
+            topBarTrailing: (
+              <Button action={dismiss} buttonStyle="plain">
+                <Image systemName="xmark" font={15} fontWeight="semibold" foregroundStyle={Neon.cyan} />
+              </Button>
+            ),
+          }}
+        >
+          <Section listRowBackground={rowBg()}>
+            <VStack spacing={2} alignment="leading" padding={{ vertical: Spacing.xs }} frame={{ maxWidth: "infinity" }}>
+              <Text font="largeTitle" fontWeight="bold" foregroundStyle={Neon.cyan} shadow={{ color: Neon.cyan, radius: 10 }}>qBitHelper</Text>
+              <Text font={FontSize.caption} fontWeight="semibold" foregroundStyle={Neon.magenta}>CYBER CONTROL PANEL</Text>
             </VStack>
           </Section>
-        ) : null}
-
-        {error.value ? (
-          <Section>
-            <HStack spacing={12} padding={{ vertical: 12 }}>
-              <RowIcon name="exclamationmark.triangle.fill" color="#FF9500" />
-              <VStack spacing={4} alignment="leading" frame={{ maxWidth: "infinity" }}>
-                <Text font="headline">连接失败</Text>
-                <Text font="subheadline" opacity={0.7}>{error.value}</Text>
-              </VStack>
-            </HStack>
-          </Section>
-        ) : null}
-
-        {isLoading.value && !data.value ? (
-          <Section>
-            <HStack padding={{ vertical: 20 }}><Spacer /><Text font="subheadline" opacity={0.7}>正在加载数据...</Text><Spacer /></HStack>
-          </Section>
-        ) : null}
-
-        <Section header={<Text>操作</Text>}>
-          <ActionRow
-            icon="widget.small"
-            color="#007AFF"
-            title="组件预览"
-            onTap={async () => {
-              const index = await Dialog.actionSheet({
-                title: "选择预览尺寸",
-                actions: [{ label: "大组件" }, { label: "中组件" }, { label: "小组件" }]
-              });
-              if (index === 0) Widget.preview({ family: 'systemLarge' });
-              else if (index === 1) Widget.preview({ family: 'systemMedium' });
-              else if (index === 2) Widget.preview({ family: 'systemSmall' });
-            }}
-          />
-          <ActionRow
-            icon="arrow.clockwise"
-            color="#34C759"
-            title="刷新组件"
-            showArrow={false}
-            trailing={
-              refreshStatus.value !== 'idle' ? (
-                <Text font={15} foregroundStyle={refreshStatus.value === 'success' ? '#34C759' : '#FF3B30'}>
-                  {refreshStatus.value === 'success' ? '已刷新' : '刷新失败'}
-                </Text>
-              ) : null
+          <Section
+            listRowBackground={rowBg()}
+            footer={
+              <Text font={FontSize.caption} foregroundStyle={Neon.textFade}>
+                远程监控·qBittorrent / Transmission
+              </Text>
             }
-            onTap={async () => {
-              try {
-                await Widget.reloadAll();
-                refreshStatus.setValue('success');
-              } catch {
-                refreshStatus.setValue('failed');
-              }
-              setTimeout(() => refreshStatus.setValue('idle'), 3000);
-            }}
-          />
-          <ActionRow icon="gear" color="#8E8E93" title="设置" onTap={() => showSettings.setValue(true)} />
-        </Section>
+          >
+            {!config.value ? (
+              <VStack spacing={Spacing.md} alignment="center" padding={{ vertical: Spacing.xl }} frame={{ maxWidth: "infinity" }}>
+                <Image
+                  systemName="server.rack"
+                  foregroundStyle={Neon.cyan}
+                  font="largeTitle"
+                  shadow={{ color: Neon.cyan, radius: 8 }}
+                />
+                <VStack spacing={Spacing.xs} alignment="center">
+                  <Text font="title3" fontWeight="semibold" foregroundStyle={Neon.text}>{'> WELCOME_'}</Text>
+                  <Text font={FontSize.footnote} foregroundStyle={Neon.textDim}>请先配置服务器</Text>
+                </VStack>
+              </VStack>
+            ) : (
+              <HStack spacing={Spacing.md} padding={{ vertical: 4 }}>
+                <NeonIcon name="checkmark.circle.fill" color={Colors.success} />
+                <VStack spacing={2} alignment="leading" frame={{ maxWidth: "infinity" }}>
+                  <Text font={FontSize.headline} fontWeight="semibold" foregroundStyle={Neon.lime}>CONNECTED</Text>
+                  <Text font={FontSize.footnote} foregroundStyle={Neon.textDim} lineLimit={1}>{config.value.url}</Text>
+                </VStack>
+              </HStack>
+            )}
+          </Section>
 
-        <Section header={<Text>关于</Text>}>
-          <ActionRow icon="doc.text" color="#5856D6" title="更新日志" onTap={() => showChangelog.setValue(true)} />
-        </Section>
-      </List>
+          {error.value ? (
+            <StatusSection icon="exclamationmark.triangle.fill" iconColor={Colors.warning} title="CONN_FAILED" message={error.value} />
+          ) : null}
+
+          {isLoading.value && !data.value ? (
+            <StatusSection icon="arrow.triangle.2.circlepath" iconColor={Colors.neutral} title="LOADING…" message="正在获取数据…" />
+          ) : null}
+
+          <Section
+            listRowBackground={rowBg()}
+            header={<Text foregroundStyle={Neon.cyan}>{sectionLabel('Operations')}</Text>}
+          >
+            <SettingsRow
+              icon="square.grid.2x2"
+              color={Colors.brand}
+              title="组件预览"
+              onTap={async () => {
+                const index = await Dialog.actionSheet({
+                  title: "选择预览尺寸",
+                  actions: [{ label: "大组件" }, { label: "中组件" }, { label: "小组件" }],
+                });
+                if (index === 0) Widget.preview({ family: 'systemLarge' });
+                else if (index === 1) Widget.preview({ family: 'systemMedium' });
+                else if (index === 2) Widget.preview({ family: 'systemSmall' });
+              }}
+            />
+            <SettingsRow
+              icon="arrow.clockwise"
+              color={Colors.success}
+              title="刷新组件"
+              showArrow={false}
+              trailing={
+                refreshStatus.value !== 'idle' ? (
+                  <Text
+                    font={FontSize.footnote}
+                    foregroundStyle={refreshStatus.value === 'success' ? Neon.lime : Neon.magenta}
+                  >
+                    {refreshStatus.value === 'success' ? 'OK' : 'ERR'}
+                  </Text>
+                ) : null
+              }
+              onTap={async () => {
+                try { await Widget.reloadAll(); refreshStatus.setValue('success'); }
+                catch { refreshStatus.setValue('failed'); }
+                setTimeout(() => refreshStatus.setValue('idle'), 3000);
+              }}
+            />
+            <SettingsRow icon="gearshape.fill" color={Colors.neutral} title="设置" onTap={() => showSettings.setValue(true)} />
+          </Section>
+
+          <Section
+            listRowBackground={rowBg()}
+            header={<Text foregroundStyle={Neon.cyan}>{sectionLabel('About')}</Text>}
+          >
+            <SettingsRow icon="doc.text.fill" color={Colors.info} title="更新日志" onTap={() => showChangelog.setValue(true)} />
+          </Section>
+        </List>
+      </CyberBackground>
     </NavigationStack>
   );
 }
-
-export { Helper as QbHelper };

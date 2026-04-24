@@ -1,18 +1,14 @@
-import { ConfigData } from './public/storage';
+import { ConfigData, ClientType } from './public/types';
 import { ClientData } from './public/types';
-import { fetchQbData, clearQbSession } from './qb';
-import { fetchTrData, clearTrSession } from './tr';
+import { fetchQbData, clearQbSession } from './qb/api';
+import { fetchTrData, clearTrSession } from './tr/api';
 
-// Re-export client-specific exports
-export { fetchQbData, QB_SESSION_KEY } from './qb';
-export { fetchTrData, TR_SESSION_KEY } from './tr';
+// 统一的客户端数据获取（按 clientType 调度）
+export const fetchData = async (config: ConfigData): Promise<ClientData | null> =>
+  config.clientType === 'tr' ? fetchTrData(config) : fetchQbData(config);
 
-// Unified data fetch function that works with both qBittorrent and Transmission
-export const fetchData = async (config: ConfigData): Promise<ClientData | null> => {
-  return config.clientType === 'tr' ? fetchTrData(config) : fetchQbData(config);
-};
-
-// Clear session for the current client type
-export const clearSession = (clientType?: 'qb' | 'tr') => {
-  clientType === 'tr' ? clearTrSession() : clearQbSession();
+// 清除对应客户端的 session（切换 / 重置时用）
+export const clearSession = (clientType?: ClientType) => {
+  if (clientType === 'tr') clearTrSession();
+  else clearQbSession();
 };

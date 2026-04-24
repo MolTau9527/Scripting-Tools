@@ -1,7 +1,7 @@
-import { VStack, HStack, Text, Chart, LineChart, Spacer } from "scripting";
-import { ClientData, HistoryPoint } from './types';
+import { VStack, HStack, Text, Chart, LineChart, Spacer, RoundedRectangle, Color } from "scripting";
+import { ClientData, HistoryPoint, ClientType } from './types';
+import { Colors, Spacing, FontSize, Radius, WidgetMetrics, Neon } from './theme';
 
-type TextColor = "systemGreen" | "systemRed" | "systemBlue";
 const FULL_WIDTH = { maxWidth: "infinity" as const };
 const FULL_SIZE = { maxWidth: "infinity" as const, maxHeight: "infinity" as const };
 
@@ -9,23 +9,28 @@ interface DisplayProps {
   data: ClientData;
   history?: HistoryPoint[];
   size?: 'small' | 'medium' | 'large';
-  clientType?: 'qb' | 'tr';
+  clientType?: ClientType;
 }
 
-const SIZES = ['B', 'KB', 'MB', 'GB', 'TB'];
-const MAX_POINTS = 10;
+const SIZES = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+const MAX_POINTS = 12;
 
 const formatBytes = (bytes: number) => {
-  if (bytes === 0) return '0 B';
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  // 防御：NaN / Infinity / 负数 → '0 B'；超范围 → 夹到最大单位
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const raw = Math.floor(Math.log(bytes) / Math.log(1024));
+  const i = Math.min(Math.max(raw, 0), SIZES.length - 1);
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${SIZES[i]}`;
 };
 
 const formatRate = (bps: number) => `${formatBytes(bps)}/s`;
 
 const formatTime = (ts: number) => {
+  if (!Number.isFinite(ts)) return '--:--';
   const d = new Date(ts);
-  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+  const t = d.getTime();
+  if (Number.isNaN(t)) return '--:--';
+  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
 const formatVersion = (v?: string) => {
@@ -33,152 +38,338 @@ const formatVersion = (v?: string) => {
   return v.toLowerCase().startsWith('v') ? v : `v${v}`;
 };
 
-const getClientName = (clientType?: 'qb' | 'tr') => clientType === 'tr' ? 'Transmission' : 'qBittorrent';
+const getClientName = (clientType: ClientType | undefined, short: boolean): string => {
+  const full = clientType === 'tr' ? 'Transmission' : 'qBittorrent';
+  if (!short) return full;
+  return clientType === 'tr' ? 'Trans' : 'qBit';
+};
 
-function StatCard({ icon, label, value, color, compact }: { 
-  icon: string; label: string; value: string; color: TextColor; compact?: boolean 
+// ============================================================
+// 原子组件
+// ============================================================
+
+/**
+ * 大号速率行：↓/↑ + 数值（霓虹发光）。
+ * 供 Small / Medium 使用。
+ */
+function RateLine({ direction, bps, compact }: {
+  direction: 'down' | 'up';
+  bps: number;
+  compact?: boolean;
 }) {
+  const isDown = direction === 'down';
+  const color: Color = isDown ? Colors.download : Colors.upload;
+  const arrow = isDown ? '↓' : '↑';
+  const numFont = compact ? FontSize.body : FontSize.headline;
   return (
-    <HStack 
-      spacing={compact ? 6 : 8} 
-      padding={{ horizontal: 10, vertical: 8 }} 
-      background="secondarySystemBackground" 
-      clipShape={{ type: 'rect', cornerRadius: 10 }} 
-      frame={{ minWidth: 0, maxWidth: "infinity" }}
-    >
-      <Text font={14}>{icon}</Text>
-      <VStack spacing={2} alignment="leading" frame={{ minWidth: 0, maxWidth: "infinity" }}>
-        <Text font={9} opacity={0.5}>{label}</Text>
-        <Text font={compact ? 13 : 12} fontWeight="semibold" foregroundStyle={color}>{value}</Text>
-      </VStack>
+    <HStack spacing={Spacing.xs + 2} frame={FULL_WIDTH}>
+      <Text
+        font={numFont}
+        fontWeight="bold"
+        foregroundStyle={color}
+        shadow={{ color, radius: WidgetMetrics.neonGlow.radius }}
+      >{arrow}</Text>
+      <Text
+        font={numFont}
+        fontWeight="bold"
+        foregroundStyle={color}
+        lineLimit={1}
+        shadow={{ color, radius: WidgetMetrics.neonGlow.radius }}
+      >{formatRate(bps)}</Text>
+      <Spacer />
     </HStack>
   );
 }
 
-function RateChart({ history, data, rateKey, color, label }: {
-  history: HistoryPoint[]; data: ClientData; rateKey: 'uploadRate' | 'downloadRate'; color: TextColor; label: string;
+/**
+ * 紧凑 KV 行：[icon] LABEL ......... VALUE
+ * 供 Medium 右栏 / Small 底部使用。
+ */
+function MiniStat({ icon, label, value, color }: {
+  icon: string;
+  label: string;
+  value: string;
+  color: Color;
 }) {
-  const recentHistory = history.slice(-MAX_POINTS);
-  const values = recentHistory.map(p => p[rateKey] / (1024 * 1024));
-  const minY = Math.min(...values);
-
   return (
-    <VStack spacing={4} frame={FULL_WIDTH}>
-      <HStack frame={FULL_WIDTH}>
-        <Text font={11} opacity={0.7}>{label}</Text>
+    <HStack spacing={Spacing.xs + 2} frame={FULL_WIDTH}>
+      <Text font={FontSize.caption}>{icon}</Text>
+      <Text font={FontSize.caption} foregroundStyle={Neon.textDim}>{label}</Text>
+      <Spacer />
+      <Text
+        font={FontSize.footnote}
+        fontWeight="semibold"
+        foregroundStyle={color}
+        lineLimit={1}
+        shadow={{ color, radius: WidgetMetrics.neonGlow.radius }}
+      >{value}</Text>
+    </HStack>
+  );
+}
+
+/**
+ * StatCard：Large 用的 3 列累计 + 种子卡。
+ */
+function StatCard({ icon, label, value, color }: {
+  icon: string;
+  label: string;
+  value: string;
+  color: Color;
+}) {
+  const cornerRadius = Radius.md + 2;
+  return (
+    <VStack
+      spacing={2}
+      padding={{ horizontal: Spacing.sm, vertical: Spacing.sm }}
+      background={Neon.surface}
+      clipShape={{ type: 'rect', cornerRadius }}
+      frame={{ minWidth: 0, maxWidth: "infinity" }}
+      overlay={
+        <RoundedRectangle
+          cornerRadius={cornerRadius}
+          stroke={{ shapeStyle: color, strokeStyle: { lineWidth: 1 } }}
+        />
+      }
+    >
+      <HStack spacing={Spacing.xs} frame={FULL_WIDTH}>
+        <Text font={FontSize.caption}>{icon}</Text>
+        <Text font={FontSize.caption - 1} foregroundStyle={Neon.textDim}>{label}</Text>
         <Spacer />
-        <Text font={10} foregroundStyle={color}>{formatRate(data[rateKey])}</Text>
       </HStack>
-      <Chart chartYAxis="hidden" frame={{ maxHeight: 80 }}>
-        <LineChart marks={recentHistory.map((p, idx) => ({
-          label: formatTime(p.timestamp), 
-          value: values[idx] - minY, 
-          foregroundStyle: color,
-          shadow: { color, radius: 7, y: 7 }
-        }))} />
-      </Chart>
       <HStack frame={FULL_WIDTH}>
-        <Text font={9} opacity={0.5}>数据点: {history.length}</Text>
+        <Text
+          font={FontSize.body}
+          fontWeight="bold"
+          foregroundStyle={color}
+          lineLimit={1}
+          shadow={{ color, radius: WidgetMetrics.neonGlow.radius }}
+        >{value}</Text>
         <Spacer />
-        <Text font={9} opacity={0.5}>更新: {formatTime(Date.now())}</Text>
       </HStack>
     </VStack>
   );
 }
 
-function SmallWidget({ data, clientType }: { data: ClientData; clientType?: 'qb' | 'tr' }) {
+/**
+ * 双色叠加折线图：↓ cyan / ↑ magenta，共享坐标，MB/s。
+ */
+function DualLineChart({ history }: { history: HistoryPoint[] }) {
+  const recent = history.slice(-MAX_POINTS);
+  const toMB = (bps: number) => bps / (1024 * 1024);
+
+  // 单个 LineChart + foregroundStyleBy 分组：硬保证只有 两条系列线。
+  // 颜色由 chartForegroundStyleScale 映射，不与 foregroundStyle 同时设置（官方要求）。
+  const marks: { label: string; value: number; series: 'DN' | 'UP' }[] = [];
+  recent.forEach(p => {
+    const label = formatTime(p.timestamp);
+    marks.push({ label, value: toMB(p.downloadRate), series: 'DN' });
+    marks.push({ label, value: toMB(p.uploadRate),   series: 'UP' });
+  });
+
   return (
-    <VStack spacing={6} alignment="leading" frame={FULL_SIZE}>
-      <HStack alignment="center" frame={FULL_WIDTH}>
-        <Text font={14} fontWeight="bold">{getClientName(clientType)}</Text>
+    <Chart
+      chartYAxis="hidden"
+      chartLegend="hidden"
+      chartForegroundStyleScale={{ DN: Colors.download, UP: Colors.upload }}
+      frame={{ maxWidth: "infinity", maxHeight: WidgetMetrics.chartHeight + 20 }}
+    >
+      <LineChart marks={marks.map(m => ({
+        label: m.label,
+        value: m.value,
+        foregroundStyleBy: m.series,
+      }))} />
+    </Chart>
+  );
+}
+
+// ============================================================
+// SmallWidget：顶部客户端名+版本 / 中部双速率大号 / 底部累计+种子活跃
+// ============================================================
+function SmallWidget({ data, clientType }: { data: ClientData; clientType?: ClientType }) {
+  const version = formatVersion(data.version);
+  return (
+    <VStack spacing={Spacing.xs} alignment="leading" frame={FULL_SIZE}>
+      {/* 顶部：名字 + 版本 */}
+      <HStack alignment="firstTextBaseline" frame={FULL_WIDTH}>
+        <Text
+          font={FontSize.footnote}
+          fontWeight="bold"
+          lineLimit={1}
+          foregroundStyle={Neon.cyan}
+          shadow={{ color: Neon.cyan, radius: WidgetMetrics.neonGlow.radius }}
+        >{getClientName(clientType, true)}</Text>
         <Spacer />
-        <Text font={11} opacity={0.5}>🌱{data.seeds}</Text>
+        {version ? (
+          <Text font={FontSize.caption - 1} foregroundStyle={Neon.textFade} lineLimit={1}>{version}</Text>
+        ) : null}
       </HStack>
+
       <Spacer />
-      <HStack frame={FULL_WIDTH}>
-        <Text font={13}>⬆️</Text>
-        <Text font={12} opacity={0.6}>上传</Text>
-        <Spacer />
-        <Text font={14} fontWeight="semibold" foregroundStyle="systemGreen">{formatBytes(data.upload)}</Text>
-      </HStack>
-      <HStack frame={FULL_WIDTH}>
-        <Text font={13}>⬇️</Text>
-        <Text font={12} opacity={0.6}>下载</Text>
-        <Spacer />
-        <Text font={14} fontWeight="semibold" foregroundStyle="systemRed">{formatBytes(data.download)}</Text>
-      </HStack>
+
+      {/* 中部：实时双速率大号 */}
+      <VStack spacing={Spacing.xs} frame={FULL_WIDTH}>
+        <RateLine direction="down" bps={data.downloadRate} />
+        <RateLine direction="up" bps={data.uploadRate} />
+      </VStack>
+
       <Spacer />
-      <HStack frame={FULL_WIDTH}>
+
+      {/* 底部：单行紧凑统计（累计 + 种子） */}
+      <HStack spacing={Spacing.xs + 2} frame={FULL_WIDTH}>
+        <Text font={FontSize.caption - 1} foregroundStyle={Neon.textDim} lineLimit={1}>
+          ⬇{formatBytes(data.download)}
+        </Text>
+        <Text font={FontSize.caption - 1} foregroundStyle={Neon.textDim} lineLimit={1}>
+          ⬆{formatBytes(data.upload)}
+        </Text>
         <Spacer />
-        <Text font={9} opacity={0.4}>{formatTime(Date.now())}</Text>
-        <Spacer />
+        <Text font={FontSize.caption - 1} foregroundStyle={Colors.seed} lineLimit={1}>
+          🌱{data.seeds}
+        </Text>
       </HStack>
     </VStack>
   );
 }
 
-function MediumWidget({ data, clientType }: { data: ClientData; clientType?: 'qb' | 'tr' }) {
+// ============================================================
+// MediumWidget：顶部标题+时间 / 左速率 · 右累计+种子+活跃
+// ============================================================
+function MediumWidget({ data, clientType }: { data: ClientData; clientType?: ClientType }) {
   const version = formatVersion(data.version);
   const time = formatTime(Date.now());
-  
+
   return (
-    <VStack spacing={8} alignment="center" frame={FULL_WIDTH}>
-      <HStack alignment="center" frame={FULL_WIDTH}>
-        <Text font={9} opacity={0}>{time}</Text>
+    <VStack spacing={Spacing.sm} alignment="leading" frame={FULL_SIZE}>
+      {/* 顶部：标题 + 版本 + 时间 */}
+      <HStack alignment="firstTextBaseline" spacing={Spacing.sm} frame={FULL_WIDTH}>
+        <Text
+          font="headline"
+          fontWeight="bold"
+          foregroundStyle={Neon.cyan}
+          shadow={{ color: Neon.cyan, radius: WidgetMetrics.neonGlow.radius }}
+        >{getClientName(clientType, false)}</Text>
+        {version ? (
+          <Text font={FontSize.caption - 1} foregroundStyle={Neon.textDim}>{version}</Text>
+        ) : null}
         <Spacer />
-        <HStack spacing={6}>
-          <Text font="headline" fontWeight="bold">{getClientName(clientType)}</Text>
-          {version ? <Text font={10} opacity={0.5}>{version}</Text> : null}
-        </HStack>
-        <Spacer />
-        <Text font={9} opacity={0.4}>{time}</Text>
+        <Text font={FontSize.caption - 1} foregroundStyle={Neon.textFade}>{time}</Text>
       </HStack>
-      <HStack spacing={8} frame={FULL_WIDTH}>
-        <VStack spacing={8} frame={FULL_WIDTH}>
-          <StatCard icon="⬆️" label="上传" value={formatBytes(data.upload)} color="systemGreen" compact />
-          <StatCard icon="⬇️" label="下载" value={formatBytes(data.download)} color="systemRed" compact />
+
+      {/* 主体：左速率 / 右 KV 列表 */}
+      <HStack spacing={Spacing.md} frame={FULL_WIDTH}>
+        {/* 左栏：双速率大号 */}
+        <VStack spacing={Spacing.sm} alignment="leading" frame={FULL_WIDTH}>
+          <RateLine direction="down" bps={data.downloadRate} />
+          <RateLine direction="up" bps={data.uploadRate} />
         </VStack>
-        <VStack spacing={8} frame={FULL_WIDTH}>
-          <StatCard icon="🌱" label="种子" value={String(data.seeds)} color="systemBlue" compact />
-          <StatCard icon="📊" label="活跃" value={`↓${data.downloadingSeeds} ↑${data.uploadingSeeds}`} color="systemBlue" compact />
+
+        {/* 右栏：累计 / 种子 / 活跃 */}
+        <VStack spacing={Spacing.xs + 2} alignment="leading" frame={FULL_WIDTH}>
+          <MiniStat icon="⬇" label="TOTAL" value={formatBytes(data.download)} color={Colors.download} />
+          <MiniStat icon="⬆" label="TOTAL" value={formatBytes(data.upload)} color={Colors.upload} />
+          <MiniStat icon="🌱" label="SEEDS" value={String(data.seeds)} color={Colors.seed} />
+          <MiniStat icon="▶" label="ACTIVE" value={`↓${data.downloadingSeeds} ↑${data.uploadingSeeds}`} color={Colors.active} />
         </VStack>
       </HStack>
     </VStack>
   );
 }
 
-function LargeWidget({ data, history, clientType }: { data: ClientData; history: HistoryPoint[]; clientType?: 'qb' | 'tr' }) {
+// ============================================================
+// LargeWidget：顶部标题+时间 / 单图双线 / 速率标签 / 3 StatCard / 活跃 chip
+// ============================================================
+function LargeWidget({ data, history, clientType }: { data: ClientData; history: HistoryPoint[]; clientType?: ClientType }) {
   const version = formatVersion(data.version);
-  const stats = [
-    { label: "上传量", value: formatBytes(data.upload), color: "systemGreen" as TextColor },
-    { label: "下载量", value: formatBytes(data.download), color: "systemRed" as TextColor },
-    { label: "种子数", value: String(data.seeds), color: "systemBlue" as TextColor }
-  ];
-  
+  const time = formatTime(Date.now());
+
   return (
-    <VStack spacing={12} alignment="center" frame={FULL_WIDTH}>
-      <HStack alignment="center" spacing={8}>
-        <Text font="title2">{getClientName(clientType)}</Text>
-        {version ? <Text font={12} opacity={0.6}>{version}</Text> : null}
+    <VStack spacing={Spacing.md} alignment="leading" frame={FULL_WIDTH}>
+      {/* 顶部：标题 + 版本 + 时间 */}
+      <HStack alignment="firstTextBaseline" spacing={Spacing.sm} frame={FULL_WIDTH}>
+        <Text
+          font="title2"
+          fontWeight="bold"
+          foregroundStyle={Neon.cyan}
+          shadow={{ color: Neon.cyan, radius: WidgetMetrics.neonGlow.radius + 2 }}
+        >{getClientName(clientType, false)}</Text>
+        {version ? (
+          <Text font={FontSize.footnote - 1} foregroundStyle={Neon.textDim}>{version}</Text>
+        ) : null}
+        <Spacer />
+        <Text font={FontSize.caption} foregroundStyle={Neon.textFade}>{time}</Text>
       </HStack>
-      <HStack spacing={20}>
-        {stats.map(s => (
-          <VStack key={s.label} spacing={4} alignment="center" frame={{ minWidth: 65 }}>
-            <Text font={11} opacity={0.6}>{s.label}</Text>
-            <Text font="title3" fontWeight="semibold" foregroundStyle={s.color}>{s.value}</Text>
-          </VStack>
-        ))}
-      </HStack>
+
+      {/* 图表 + 速率标签 */}
       {history.length > 0 ? (
-        <VStack spacing={12} frame={FULL_WIDTH}>
-          <RateChart history={history} data={data} rateKey="downloadRate" color="systemRed" label="下载速率" />
-          <RateChart history={history} data={data} rateKey="uploadRate" color="systemGreen" label="上传速率" />
-          <HStack spacing={20}>
-            <Text font={10} opacity={0.6}>正在下载: {data.downloadingSeeds}</Text>
-            <Text font={10} opacity={0.6}>正在上传: {data.uploadingSeeds}</Text>
+        <VStack spacing={Spacing.xs} frame={FULL_WIDTH}>
+          <DualLineChart history={history} />
+          <HStack spacing={Spacing.md} frame={FULL_WIDTH}>
+            <HStack spacing={Spacing.xs}>
+              <Text
+                font={FontSize.footnote}
+                fontWeight="bold"
+                foregroundStyle={Colors.download}
+                shadow={{ color: Colors.download, radius: WidgetMetrics.neonGlow.radius }}
+              >↓</Text>
+              <Text
+                font={FontSize.footnote}
+                fontWeight="semibold"
+                foregroundStyle={Colors.download}
+                shadow={{ color: Colors.download, radius: WidgetMetrics.neonGlow.radius }}
+              >{formatRate(data.downloadRate)}</Text>
+            </HStack>
+            <HStack spacing={Spacing.xs}>
+              <Text
+                font={FontSize.footnote}
+                fontWeight="bold"
+                foregroundStyle={Colors.upload}
+                shadow={{ color: Colors.upload, radius: WidgetMetrics.neonGlow.radius }}
+              >↑</Text>
+              <Text
+                font={FontSize.footnote}
+                fontWeight="semibold"
+                foregroundStyle={Colors.upload}
+                shadow={{ color: Colors.upload, radius: WidgetMetrics.neonGlow.radius }}
+              >{formatRate(data.uploadRate)}</Text>
+            </HStack>
+            <Spacer />
+            <Text font={FontSize.caption - 1} foregroundStyle={Neon.textFade}>
+              {history.length} PTS
+            </Text>
           </HStack>
         </VStack>
-      ) : null}
+      ) : (
+        <HStack frame={{ maxWidth: "infinity", maxHeight: WidgetMetrics.chartHeight }}>
+          <Spacer />
+          <Text font={FontSize.caption} foregroundStyle={Neon.textFade}>// NO HISTORY</Text>
+          <Spacer />
+        </HStack>
+      )}
+
+      {/* 3 列累计卡 */}
+      <HStack spacing={Spacing.sm} frame={FULL_WIDTH}>
+        <StatCard icon="⬇" label="DOWN" value={formatBytes(data.download)} color={Colors.download} />
+        <StatCard icon="⬆" label="UP" value={formatBytes(data.upload)} color={Colors.upload} />
+        <StatCard icon="🌱" label="SEEDS" value={String(data.seeds)} color={Colors.seed} />
+      </HStack>
+
+      {/* 活跃 chip 行 */}
+      <HStack spacing={Spacing.md} frame={FULL_WIDTH}>
+        <Text font={FontSize.caption} foregroundStyle={Neon.textDim}>▶ ACTIVE</Text>
+        <Text
+          font={FontSize.caption}
+          fontWeight="semibold"
+          foregroundStyle={Colors.download}
+          shadow={{ color: Colors.download, radius: WidgetMetrics.neonGlow.radius }}
+        >↓ {data.downloadingSeeds}</Text>
+        <Text
+          font={FontSize.caption}
+          fontWeight="semibold"
+          foregroundStyle={Colors.upload}
+          shadow={{ color: Colors.upload, radius: WidgetMetrics.neonGlow.radius }}
+        >↑ {data.uploadingSeeds}</Text>
+        <Spacer />
+      </HStack>
     </VStack>
   );
 }
@@ -188,5 +379,3 @@ export function Display({ data, history = [], size = 'large', clientType = 'qb' 
   if (size === 'medium') return <MediumWidget data={data} clientType={clientType} />;
   return <LargeWidget data={data} history={history} clientType={clientType} />;
 }
-
-export { Display as QbDisplay };

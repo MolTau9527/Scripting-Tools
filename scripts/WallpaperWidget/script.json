@@ -7,7 +7,7 @@
   "localizedNames" : {
 
   },
-  "color" : "rgba(238, 92, 98,1)",
+  "color" : "rgba(255, 107, 157, 1)",
   "intentInputTypes" : [
 
   ],
@@ -19,5 +19,5 @@
     "name" : "MolTau9527",
     "email" : "2933177144@qq.com"
   },
-  "version" : "1.0.2"
+  "version" : "1.0.3"
 }
