@@ -1,5 +1,5 @@
 import { Image, Text, VStack } from 'scripting'
-import { useColors } from '../../contexts/ThemeContext'
+import type { SemanticColors } from '../../contexts/ThemeContext'
 import { cornerRadius } from '../../utils/styles'
 import { isImageUrl } from '../../utils/urlValidator'
 import type { Plugin } from '../../types'
@@ -10,7 +10,8 @@ import type { Plugin } from '../../types'
 
 export interface PluginIconProps {
   plugin: Plugin
-  size?: 'small' | 'medium' | 'large' | 'featured'
+  colors: SemanticColors
+  size?: 'small' | 'medium'
 }
 
 // ============================================================
@@ -20,20 +21,13 @@ export interface PluginIconProps {
 const sizeConfig = {
   small: { dimension: 44, radius: cornerRadius.md, fontSize: 24 },
   medium: { dimension: 60, radius: cornerRadius.lg, fontSize: 32 },
-  large: { dimension: 80, radius: cornerRadius.lg, fontSize: 40 },
-  featured: { dimension: 120, radius: cornerRadius.xl, fontSize: 56 },
 } as const
-
-// ============================================================
-// Helpers
-// ============================================================
 
 // ============================================================
 // Component
 // ============================================================
 
-export const PluginIcon = ({ plugin, size = 'medium' }: PluginIconProps) => {
-  const colors = useColors()
+export const PluginIcon = ({ plugin, colors, size = 'medium' }: PluginIconProps) => {
   const config = sizeConfig[size]
 
   // SF Symbol 图标

@@ -1,22 +1,22 @@
-import { createContext, useContext, useState, useMemo, useCallback, useEffect, useRef } from 'scripting'
+import { AbortController, createContext, useState, useMemo, useCallback, useEffect, useRef, useSelector } from 'scripting'
 import { fetchPlugins, fetchConfig } from '../api'
-import type { Plugin, SiteConfig, SortType } from '../types'
+import type { Plugin, SiteConfig } from '../types'
+import { arePluginsEqual } from '../utils/plugin'
 
 // ============================================================
 // Types
 // ============================================================
 
-export type StoreStatus = 'idle' | 'loading' | 'success' | 'error' | 'refreshing'
+type StoreStatus = 'loading' | 'success' | 'error'
 
-export interface StoreState {
+interface StoreState {
   status: StoreStatus
   plugins: Plugin[]
   config: SiteConfig
   error: string | null
-  lastFetch: number | null
 }
 
-export interface StoreContextValue extends StoreState {
+interface StoreContextValue extends StoreState {
   refresh: () => Promise<void>
 }
 
@@ -30,16 +30,10 @@ const DEFAULT_CONFIG: SiteConfig = {
 }
 
 const INITIAL_STATE: StoreState = {
-  status: 'idle',
+  status: 'loading',
   plugins: [],
   config: DEFAULT_CONFIG,
   error: null,
-  lastFetch: null,
-}
-
-const parseUpdateTime = (value: string): number => {
-  const timestamp = Date.parse(value)
-  return Number.isNaN(timestamp) ? 0 : timestamp
 }
 
 // ============================================================
@@ -52,46 +46,98 @@ export const StoreProvider = ({ children }: { children: JSX.Element }) => {
   const [state, setState] = useState<StoreState>(INITIAL_STATE)
   const requestIdRef = useRef(0)
   const isMountedRef = useRef(true)
+  const pluginAbortControllerRef = useRef<AbortController | null>(null)
+  const configAbortControllerRef = useRef<AbortController | null>(null)
 
   const refresh = useCallback(async () => {
     const currentRequestId = ++requestIdRef.current
+    pluginAbortControllerRef.current?.abort()
+    configAbortControllerRef.current?.abort()
+    const pluginController = new AbortController()
+    const configController = new AbortController()
+    pluginAbortControllerRef.current = pluginController
+    configAbortControllerRef.current = configController
 
-    setState(prev => ({
-      ...prev,
-      status: prev.plugins.length > 0 ? 'refreshing' : 'loading',
-      error: null,
-    }))
+    // List.refreshable 已提供原生刷新反馈；已有数据时保持快照不变，
+    // 避免仅为 refreshing 标记让主屏、卡片和玻璃层整树重渲染。
+    setState(prev => {
+      if (prev.plugins.length > 0 || (prev.status === 'loading' && prev.error === null)) {
+        return prev
+      }
+      return { ...prev, status: 'loading', error: null }
+    })
+
+    // 配置与插件同时请求，但配置在后台独立更新，不延长首屏和下拉刷新 Promise。
+    void fetchConfig(configController.signal).then(configData => {
+      if (!isMountedRef.current || requestIdRef.current !== currentRequestId) return
+
+      setState(prev => {
+        const nextConfig = { ...prev.config, ...configData }
+        if (
+          prev.config.bannerTitle === nextConfig.bannerTitle &&
+          prev.config.bannerSubtitle === nextConfig.bannerSubtitle
+        ) {
+          return prev
+        }
+        return { ...prev, config: nextConfig }
+      })
+    }).catch(() => undefined).finally(() => {
+      if (
+        requestIdRef.current === currentRequestId &&
+        configAbortControllerRef.current === configController
+      ) {
+        configAbortControllerRef.current = null
+      }
+    })
 
     try {
-      const [plugins, configData] = await Promise.all([
-        fetchPlugins(),
-        fetchConfig(),
-      ])
+      const plugins = await fetchPlugins(pluginController.signal)
 
       if (!isMountedRef.current || requestIdRef.current !== currentRequestId) return
 
-      setState({
-        status: 'success',
-        plugins,
-        config: { ...DEFAULT_CONFIG, ...configData },
-        error: null,
-        lastFetch: Date.now(),
+      setState(prev => {
+        const nextPlugins = arePluginsEqual(prev.plugins, plugins) ? prev.plugins : plugins
+        if (prev.status === 'success' && prev.plugins === nextPlugins && prev.error === null) {
+          return prev
+        }
+        return {
+          ...prev,
+          status: 'success',
+          plugins: nextPlugins,
+          error: null,
+        }
       })
+
     } catch (err) {
       if (!isMountedRef.current || requestIdRef.current !== currentRequestId) return
 
-      setState(prev => ({
-        ...prev,
-        status: prev.plugins.length > 0 ? 'success' : 'error',
-        error: err instanceof Error ? err.message : '加载失败',
-      }))
+      setState(prev => prev.plugins.length > 0
+        ? prev
+        : {
+          ...prev,
+          status: 'error',
+          error: err instanceof Error ? err.message : '加载失败',
+        })
+    } finally {
+      if (
+        requestIdRef.current === currentRequestId &&
+        pluginAbortControllerRef.current === pluginController
+      ) {
+        pluginAbortControllerRef.current = null
+      }
     }
   }, [])
 
   useEffect(() => {
     refresh()
-    return () => { isMountedRef.current = false }
-  }, [refresh])
+    return () => {
+      isMountedRef.current = false
+      pluginAbortControllerRef.current?.abort()
+      configAbortControllerRef.current?.abort()
+      pluginAbortControllerRef.current = null
+      configAbortControllerRef.current = null
+    }
+  }, [])  // 空依赖：只在挂载时触发一次初始加载
 
   const value = useMemo<StoreContextValue>(() => ({
     ...state,
@@ -109,91 +155,18 @@ export const StoreProvider = ({ children }: { children: JSX.Element }) => {
 // Hooks
 // ============================================================
 
-export const useStore = (): StoreContextValue => {
-  return useContext(StoreContext)
-}
+export const useStorePlugins = (): Plugin[] =>
+  useSelector(StoreContext, value => value.plugins)
 
-export const usePlugins = (): Plugin[] => {
-  return useStore().plugins
-}
+export const useStoreConfig = (): SiteConfig =>
+  useSelector(StoreContext, value => value.config)
 
-export const useConfig = (): SiteConfig => {
-  return useStore().config
-}
+export const useStoreRefresh = (): (() => Promise<void>) =>
+  useSelector(StoreContext, value => value.refresh)
 
 export const useStoreStatus = () => {
-  const { status, error, refresh } = useStore()
-  return { status, error, refresh, isLoading: status === 'loading' || status === 'refreshing' }
-}
-
-// ============================================================
-// Query Hook - 筛选和排序（预计算 + 预排序缓存）
-// ============================================================
-
-export interface PluginQueryOptions {
-  searchTerm?: string
-  sortType?: SortType
-  authorFilter?: string
-  followedOnly?: boolean
-  followedIds?: string[]
-}
-
-interface IndexedPlugin {
-  plugin: Plugin
-  searchText: string
-  updateTimestamp: number
-}
-
-const useIndexedPlugins = () => {
-  const plugins = usePlugins()
-
-  return useMemo(() =>
-    plugins.map(p => ({
-      plugin: p,
-      searchText: `${p.name || ''}\0${p.description || ''}\0${p.author || ''}`.toLowerCase(),
-      updateTimestamp: parseUpdateTime(p.updateTime),
-    })),
-  [plugins])
-}
-
-const useSortedPlugins = () => {
-  const indexed = useIndexedPlugins()
-
-  return useMemo(() => ({
-    byTime: [...indexed].sort((a, b) => b.updateTimestamp - a.updateTimestamp),
-    byPopular: [...indexed].sort((a, b) => (b.plugin.installCount || 0) - (a.plugin.installCount || 0)),
-  }), [indexed])
-}
-
-export const usePluginQuery = (options: PluginQueryOptions = {}): Plugin[] => {
-  const sorted = useSortedPlugins()
-
-  return useMemo(() => {
-    const sortType = options.sortType || 'time'
-    let result = sortType === 'time' ? sorted.byTime : sorted.byPopular
-
-    if (options.searchTerm?.trim()) {
-      const term = options.searchTerm.toLowerCase()
-      result = result.filter(item => item.searchText.includes(term))
-    }
-
-    if (options.authorFilter) {
-      const author = options.authorFilter.toLowerCase()
-      result = result.filter(item => item.plugin.author?.toLowerCase().includes(author))
-    }
-
-    if (options.followedOnly && options.followedIds) {
-      result = result.filter(item => options.followedIds!.includes(String(item.plugin.id)))
-    }
-
-    return result.map(item => item.plugin)
-  }, [sorted, options.searchTerm, options.sortType, options.authorFilter, options.followedOnly, options.followedIds])
-}
-
-export const useFeaturedPlugins = (): Plugin[] => {
-  const sorted = useSortedPlugins()
-
-  return useMemo(() => {
-    return sorted.byTime.slice(0, 5).map(item => item.plugin)
-  }, [sorted])
+  const status = useSelector(StoreContext, value => value.status)
+  const error = useSelector(StoreContext, value => value.error)
+  const refresh = useSelector(StoreContext, value => value.refresh)
+  return { status, error, refresh }
 }

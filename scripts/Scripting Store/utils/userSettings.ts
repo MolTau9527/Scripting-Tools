@@ -10,6 +10,11 @@ const defaultSettings: UserSettings = {
 }
 
 type UserSettingsInput = Partial<UserSettings> | null | undefined
+type FavoriteChangeListener = () => void
+type PluginFavoriteChangeListener = (isFollowed: boolean) => void
+
+let cachedSettings: UserSettings | null = null
+let followedPluginIds = new Set<string>()
 
 const normalizeString = (value: unknown): string => {
   return typeof value === 'string' ? value.trim() : ''
@@ -56,45 +61,99 @@ export async function loadDefaultAvatar(): Promise<string | null> {
   } catch { return null }
 }
 
-export const getUserSettings = (): UserSettings => {
+const readUserSettings = (): UserSettings => {
   const saved = Storage.get<UserSettings>(STORAGE_KEY)
   const sanitized = sanitizeUserSettings(saved)
   return { ...defaultSettings, ...sanitized }
 }
 
+export const getUserSettings = (): UserSettings => {
+  if (!cachedSettings) {
+    cachedSettings = readUserSettings()
+    followedPluginIds = new Set(cachedSettings.followedPlugins)
+  }
+  return cachedSettings
+}
+
 export const saveUserSettings = (settings: Partial<UserSettings>): UserSettings => {
   const updated = sanitizeUserSettings({ ...getUserSettings(), ...settings })
+  cachedSettings = updated
+  if (settings.followedPlugins !== undefined) {
+    followedPluginIds = new Set(updated.followedPlugins)
+  }
   Storage.set(STORAGE_KEY, updated)
   return updated
 }
 
 export const resetUserSettings = (): UserSettings => {
-  Storage.set(STORAGE_KEY, defaultSettings)
-  return defaultSettings
+  cachedSettings = { ...defaultSettings, followedPlugins: [] }
+  followedPluginIds = new Set()
+  Storage.set(STORAGE_KEY, cachedSettings)
+  notifyFavoriteChange()
+  return cachedSettings
 }
 
 // --- Favorite change pub/sub ---------------------------------------
-// 跨页面同步：在任意位置调用 toggleFollowPlugin 后，所有订阅者会被通知。
-const favoriteListeners = new Set<() => void>()
+// 跨页面同步：用内存快照避免每个按钮渲染时重复读取 Storage；
+// 仅将变更的插件 ID 通知给订阅者，未受影响的按钮不会重新渲染。
+const favoriteListeners = new Set<FavoriteChangeListener>()
+const pluginFavoriteListeners = new Map<string, Set<PluginFavoriteChangeListener>>()
 
-export const subscribeFavoriteChange = (listener: () => void): (() => void) => {
+export const subscribeFavoriteChange = (listener: FavoriteChangeListener): (() => void) => {
   favoriteListeners.add(listener)
   return () => { favoriteListeners.delete(listener) }
 }
 
-const notifyFavoriteChange = (): void => {
-  favoriteListeners.forEach(l => { try { l() } catch { /* ignore */ } })
+export const subscribePluginFavoriteChange = (
+  pluginId: string,
+  listener: PluginFavoriteChangeListener,
+): (() => void) => {
+  let listeners = pluginFavoriteListeners.get(pluginId)
+  if (!listeners) {
+    listeners = new Set()
+    pluginFavoriteListeners.set(pluginId, listeners)
+  }
+  listeners.add(listener)
+
+  return () => {
+    listeners?.delete(listener)
+    if (
+      listeners?.size === 0 &&
+      pluginFavoriteListeners.get(pluginId) === listeners
+    ) {
+      pluginFavoriteListeners.delete(pluginId)
+    }
+  }
+}
+
+const notifyFavoriteChange = (changedPluginId?: string, isFollowed?: boolean): void => {
+  favoriteListeners.forEach(listener => { try { listener() } catch { /* ignore */ } })
+
+  if (changedPluginId) {
+    pluginFavoriteListeners.get(changedPluginId)?.forEach(listener => {
+      try { listener(Boolean(isFollowed)) } catch { /* ignore */ }
+    })
+    return
+  }
+
+  // 资料重置会一次清空全部收藏；此低频路径需要同步所有当前可见按钮。
+  pluginFavoriteListeners.forEach(listeners => {
+    listeners.forEach(listener => { try { listener(false) } catch { /* ignore */ } })
+  })
 }
 
 const togglePluginFollow = (id: string): UserSettings => {
-  const list = [...(getUserSettings().followedPlugins || [])]
-  const idx = list.indexOf(id)
-  if (idx === -1) list.push(id)
-  else list.splice(idx, 1)
-  const next = saveUserSettings({ followedPlugins: list })
-  notifyFavoriteChange()
+  getUserSettings()
+  const nextIds = new Set(followedPluginIds)
+  if (nextIds.has(id)) nextIds.delete(id)
+  else nextIds.add(id)
+  const next = saveUserSettings({ followedPlugins: [...nextIds] })
+  notifyFavoriteChange(id, followedPluginIds.has(id))
   return next
 }
 
-export const isFollowingPlugin = (pluginId: string) => (getUserSettings().followedPlugins || []).includes(pluginId)
+export const isFollowingPlugin = (pluginId: string): boolean => {
+  getUserSettings()
+  return followedPluginIds.has(pluginId)
+}
 export const toggleFollowPlugin = (pluginId: string) => togglePluginFollow(pluginId)

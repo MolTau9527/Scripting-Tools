@@ -2,13 +2,11 @@ import { Image, Text, VStack } from 'scripting'
 import { useColors } from '../../contexts/ThemeContext'
 import { cornerRadius, fontSize } from '../../utils/styles'
 
-export interface PreviewTileProps {
+interface PreviewTileProps {
   imageUrl?: string
   symbol?: string
   emoji?: string
   placeholderSymbol?: string
-  placeholderFont?: number
-  size?: number
 }
 
 export const PreviewTile = ({
@@ -16,8 +14,6 @@ export const PreviewTile = ({
   symbol,
   emoji,
   placeholderSymbol,
-  placeholderFont = 32,
-  size = 80,
 }: PreviewTileProps) => {
   const colors = useColors()
 
@@ -26,7 +22,7 @@ export const PreviewTile = ({
       <Image
         imageUrl={imageUrl}
         resizable
-        frame={{ width: size, height: size }}
+        frame={{ width: 80, height: 80 }}
         clipShape={{ type: 'rect', cornerRadius: cornerRadius.lg }}
       />
     )
@@ -34,7 +30,7 @@ export const PreviewTile = ({
 
   return (
     <VStack
-      frame={{ width: size, height: size }}
+      frame={{ width: 80, height: 80 }}
       background={colors.tertiaryFill}
       clipShape={{ type: 'rect', cornerRadius: cornerRadius.lg }}
       alignment="center"
@@ -46,7 +42,7 @@ export const PreviewTile = ({
       ) : (
         <Image
           systemName={placeholderSymbol || 'photo'}
-          font={placeholderFont}
+          font={32}
           foregroundStyle={colors.tertiaryLabel}
           frame={{ width: 32, height: 32 }}
         />

@@ -1,9 +1,8 @@
-import { HStack, Navigation, Text, ScrollView, VStack } from 'scripting'
+import { Button, HStack, List, Navigation, NavigationStack, Section, Text } from 'scripting'
 import { useTheme } from '../contexts/ThemeContext'
+import { ThemeRowBackground } from './common/ThemeRowBackground'
+import { GlassBackground } from './common/GlassBackground'
 import { spacing, fontSize } from '../utils/styles'
-import { ContentCard } from './common/ContentCard'
-import { NavigationAction } from './common/NavigationAction'
-import { PageHeader } from './common/PageHeader'
 
 // ============================================================
 // Types
@@ -19,45 +18,52 @@ interface ChangelogEntry {
 const changelog: ChangelogEntry[] = [
   {
     version: '1.0.0',
-    date: '2025-12-11',
+    date: '2025-01-01',
     changes: [
-      '发布Scripting Store插件',
-    ]
+      '端上来了',
+    ],
   },
   {
     version: '1.0.1',
-    date: '2025-12-12',
+    date: '2025-01-05',
     changes: [
-      '更新支持深色模式',
-    ]
+      '下锅煮螺蛳粉',
+    ],
   },
   {
-    version: '1.0.2',
-    date: '2025-12-16',
+    version: '1.1.0',
+    date: '2025-01-10',
     changes: [
-      '更新图标为SVG',
-    ]
+      '加葱姜蒜',
+    ],
   },
   {
-    version: '1.0.3',
-    date: '2025-12-17',
+    version: '1.2.0',
+    date: '2025-01-15',
     changes: [
-      '支持 SF Symbol显示',
-    ]
+      '起火烧油',
+    ],
   },
   {
     version: '2.0.0',
-    date: '2026-01-30',
+    date: '2025-01-18',
     changes: [
-      '新增最新区',
-    ]
+      '爆炒牛肉',
+    ],
   },
   {
     version: '2.0.1',
-    date: '2026-04-23',
+    date: '2025-01-20',
     changes: [
-      '优化一些BUG',
-    ]
+      '特辣',
+    ],
+  },
+  {
+    version: '2.0.2',
+    date: '2026-07-21',
+    changes: [
+      '特辣 PLUS',
+    ],
   }
 ]
 
@@ -73,49 +79,69 @@ export const Changelog = () => {
   const { actualMode, colors } = useTheme()
 
   return (
-    <VStack
-      frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }}
-      background={colors.secondaryBackground}
+    <NavigationStack
       preferredColorScheme={actualMode}
+      tint={colors.tint}
+      foregroundStyle={colors.label}
+      toolbarColorScheme={{ colorScheme: actualMode, bars: ['navigationBar'] }}
     >
-      <PageHeader
-        title="更新日志"
-        leading={<NavigationAction type="back" onPress={() => dismiss()} />}
-      />
-
-      <ScrollView>
-        <VStack padding={spacing.lg} spacing={spacing.lg}>
-          {changelogNewestFirst.map((entry) => (
-            <ContentCard
-              key={`${entry.version}-${entry.date}`}
-              alignment="leading"
-            >
+      <List
+        listStyle="plain"
+        preferredColorScheme={actualMode}
+        scrollContentBackground="hidden"
+        background={<GlassBackground />}
+        foregroundStyle={colors.label}
+        tint={colors.tint}
+        listRowSpacing={12}
+        contentMargins={{ edges: 'horizontal', insets: 16, placement: 'scrollContent' }}
+        navigationTitle="更新日志"
+        navigationBarTitleDisplayMode="inline"
+        toolbar={{
+          cancellationAction: <Button title="关闭" role="close" action={() => dismiss()} />,
+        }}
+      >
+        {changelogNewestFirst.map((entry, index) => (
+          <Section
+            key={`${entry.version}-${entry.date}`}
+            listRowBackground={<ThemeRowBackground variant={index === 0 ? 'elevated' : 'surface'} />}
+            header={(
               <HStack alignment="center" spacing={spacing.sm}>
                 <Text font={fontSize.title3} fontWeight="bold" foregroundStyle={colors.tint}>
                   v{entry.version}
                 </Text>
+                {index === 0 ? (
+                  <Text
+                    font={fontSize.caption2}
+                    fontWeight="semibold"
+                    foregroundStyle={colors.background}
+                    padding={{ top: 2, bottom: 2, leading: spacing.sm, trailing: spacing.sm }}
+                    background={colors.tint}
+                    clipShape="capsule"
+                  >
+                    最新
+                  </Text>
+                ) : null}
                 <Text font={fontSize.footnote} foregroundStyle={colors.tertiaryLabel}>
                   {entry.date}
                 </Text>
               </HStack>
-              <VStack spacing={spacing.sm} alignment="leading">
-                {entry.changes.map((change) => (
-                  <HStack key={`${entry.version}-${change}`} spacing={spacing.sm} alignment="top">
-                    <Text font={fontSize.subheadline} foregroundStyle={colors.systemGreen}>•</Text>
-                    <Text
-                      font={fontSize.subheadline}
-                      foregroundStyle={colors.secondaryLabel}
-                      frame={{ maxWidth: 'infinity', alignment: 'leading' }}
-                    >
-                      {change}
-                    </Text>
-                  </HStack>
-                ))}
-              </VStack>
-            </ContentCard>
-          ))}
-        </VStack>
-      </ScrollView>
-    </VStack>
+            )}
+          >
+            {entry.changes.map((change) => (
+              <HStack key={`${entry.version}-${change}`} spacing={spacing.sm} alignment="top">
+                <Text foregroundStyle={colors.tint}>•</Text>
+                <Text
+                  font={fontSize.subheadline}
+                  foregroundStyle={colors.secondaryLabel}
+                  frame={{ maxWidth: 'infinity', alignment: 'leading' }}
+                >
+                  {change}
+                </Text>
+              </HStack>
+            ))}
+          </Section>
+        ))}
+      </List>
+    </NavigationStack>
   )
 }

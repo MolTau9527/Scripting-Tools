@@ -1,31 +1,27 @@
-import { Button, Text } from 'scripting'
-import { useColors } from '../../contexts/ThemeContext'
-import { cornerRadius, createSymmetricPadding, fontSize, spacing } from '../../utils/styles'
+import { Button } from 'scripting'
+import type { Color } from 'scripting'
 
-// App Store 风格的「获取」按钮
-export interface GetButtonProps {
-  onPress?: () => void
+// App Store 风格「获取」按钮 —— 实心 borderedProminent：
+// 玻璃按钮在深色模式下可能被解析为白色胶囊，实心 tint 底在两种模式下渲染一致。
+interface GetButtonProps {
+  tint: Color
+  onPress: () => void
   isLoading?: boolean
   disabled?: boolean
 }
 
-export const GetButton = ({ onPress, isLoading, disabled }: GetButtonProps) => {
-  const colors = useColors()
-
+export const GetButton = ({ tint, onPress, isLoading, disabled }: GetButtonProps) => {
   return (
-    <Button action={onPress || (() => {})} disabled={disabled || !onPress}>
-      <Text
-        font={fontSize.subheadline}
-        fontWeight="bold"
-        foregroundStyle={colors.tint}
-        padding={createSymmetricPadding(spacing.sm, spacing.lg)}
-        frame={{ minWidth: 72, minHeight: 32 }}
-        background={colors.tertiaryFill}
-        clipShape={{ type: 'rect', cornerRadius: cornerRadius.full }}
-        opacity={disabled ? 0.6 : 1}
-      >
-        {isLoading ? '...' : '获取'}
-      </Text>
-    </Button>
+    <Button
+      title={isLoading ? '安装中…' : '获取'}
+      systemImage="arrow.down.circle"
+      action={onPress}
+      buttonStyle="borderedProminent"
+      controlSize="small"
+      tint={tint}
+      disabled={disabled}
+      accessibilityLabel={isLoading ? '安装中' : '获取插件'}
+      accessibilityHint={isLoading ? '正在安装' : '轻点安装这个插件'}
+    />
   )
 }

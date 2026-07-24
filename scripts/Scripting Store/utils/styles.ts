@@ -1,19 +1,12 @@
-import { gradient } from 'scripting'
-
 // ============================================================
 // iOS Design System Tokens
 // 仅保留实际被引用的 token；历史冗余已移除。
 // ============================================================
 
-// 圆角
+// 圆角：原生列表/表单之外，仅给业务卡片保留轻量层级。
 export const cornerRadius = {
-  xs: 4,
-  sm: 8,
   md: 12,
   lg: 16,
-  xl: 20,
-  xxl: 24,
-  full: 9999,
 } as const
 
 // 间距
@@ -23,8 +16,6 @@ export const spacing = {
   md: 12,
   lg: 16,
   xl: 20,
-  xxl: 24,
-  xxxl: 32,
 } as const
 
 // 字体大小（参考 iOS HIG）
@@ -33,25 +24,9 @@ export const fontSize = {
   caption1: 12,
   footnote: 13,
   subheadline: 15,
-  callout: 16,
   body: 17,
-  headline: 17,
   title3: 20,
-  title2: 22,
-  title1: 28,
   largeTitle: 34,
-} as const
-
-// 图标尺寸
-export const iconSize = {
-  xs: 12,
-  sm: 16,
-  md: 20,
-  lg: 24,
-  xl: 32,
-  xxl: 48,
-  xxxl: 64,
-  featured: 80,
 } as const
 
 // 辅助：生成水平/垂直对称的 padding
@@ -62,16 +37,6 @@ export const createSymmetricPadding = (vertical: number, horizontal: number) => 
   trailing: horizontal,
 })
 
-// 渐变背景（根据浅色/深色模式）
-export const getGradientBackground = (mode: 'light' | 'dark') =>
-  mode === 'dark'
-    ? gradient('linear', {
-        colors: ['#04111f', '#0d2f52', '#1b5e91'],
-        startPoint: 'top',
-        endPoint: 'bottom',
-      })
-    : gradient('linear', {
-        colors: ['#e8f7ff', '#b8e6ff', '#7ccfff'],
-        startPoint: 'topLeading',
-        endPoint: 'bottomTrailing',
-      })
+// 深色模式玻璃染色：iOS 材质在深色下可能解析为浅色变体或带白色高光，
+// 统一染上深空蓝确保行框不发白。浅色模式不染色，保留原生材质。
+export const darkGlassTint = 'rgba(13,27,58,0.68)' as const

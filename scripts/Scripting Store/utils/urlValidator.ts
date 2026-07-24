@@ -8,10 +8,8 @@ declare const URL: {
   }
 }
 
-const DANGEROUS_PROTOCOLS = /^(javascript|file|data|vbscript):/i
-const HTTP_PROTOCOL = /^https?:\/\//i
-const SCRIPTING_PROTOCOL = /^scripting:\/\//i
 const SCRIPTING_IMPORT = 'scripting://import_scripts'
+const SCRIPTING_FUN_IMPORT_PATH = '/import_scripts'
 
 const ALLOWED_HOSTS = [
   'github.com',
@@ -22,53 +20,109 @@ const ALLOWED_HOSTS = [
 
 const IMPORTABLE_EXT_RE = /\.(scripting|js|zip)(\?|#|$)/i
 
-function extractHostname(url: string): string | null {
+interface ParsedUrl {
+  hostname: string
+  pathname: string
+  protocol: string
+}
+
+const parseUrl = (value: string): ParsedUrl | null => {
   try {
-    const u = new URL(url)
-    return u.hostname.toLowerCase()
+    const parsed = new URL(value)
+    return {
+      hostname: parsed.hostname.toLowerCase(),
+      pathname: parsed.pathname,
+      protocol: parsed.protocol.toLowerCase(),
+    }
   } catch {
     return null
   }
 }
 
-function extractPathname(url: string): string {
+const extractUrlsParam = (url: string): string | null => {
   try {
-    return new URL(url).pathname
+    const match = url.match(/[?&]urls=([^&]+)/)
+    return match?.[1] ? decodeURIComponent(match[1]) : null
   } catch {
-    return ''
+    return null
   }
 }
 
 const isAllowedHost = (hostname: string): boolean =>
   ALLOWED_HOSTS.some(host => hostname === host || hostname.endsWith('.' + host))
 
-export const isImageUrl = (value: string): boolean =>
-  Boolean(value) && (HTTP_PROTOCOL.test(value) || value.startsWith('data:'))
+export const isImportScheme = (value: string): boolean => {
+  const url = value.trim()
+  if (url === SCRIPTING_IMPORT || url.startsWith(`${SCRIPTING_IMPORT}?`)) return true
 
-export const isImportableUrl = (url: string): boolean => {
-  if (!url) return false
-  const hostname = extractHostname(url)
-  if (!hostname) return false
-  return IMPORTABLE_EXT_RE.test(extractPathname(url)) || isAllowedHost(hostname)
+  const parsed = parseUrl(url)
+  return parsed?.protocol === 'https:' &&
+    parsed.hostname === 'scripting.fun' &&
+    parsed.pathname === SCRIPTING_FUN_IMPORT_PATH
 }
 
-export const isSafeUrl = (url: string): boolean =>
-  !DANGEROUS_PROTOCOLS.test(url)
+/** 可导入的 http(s) 链接：.scripting/.js/.zip 文件，或白名单域名 */
+export const isImportableUrl = (value: string): boolean => {
+  const parsed = parseUrl(value.trim())
+  if (!parsed || (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')) return false
+  return IMPORTABLE_EXT_RE.test(parsed.pathname) || isAllowedHost(parsed.hostname)
+}
+
+/** 解析 import scheme 中的 URL，并仅保留可导入的 http(s) 地址。 */
+export const parseImportUrls = (value: string): string[] | null => {
+  if (!isImportScheme(value)) return null
+
+  try {
+    const param = extractUrlsParam(value.trim())
+    if (!param) return null
+
+    const items = JSON.parse(param)
+    if (!Array.isArray(items) || items.length === 0) return null
+
+    const urls: string[] = []
+    const seen = new Set<string>()
+    for (const item of items) {
+      if (typeof item !== 'string') continue
+      const url = item.trim()
+      if (!url || seen.has(url) || !isImportableUrl(url)) continue
+      seen.add(url)
+      urls.push(url)
+    }
+
+    return urls.length > 0 ? urls : null
+  } catch {
+    return null
+  }
+}
+
+export const isImageUrl = (value: string): boolean => {
+  const url = value.trim()
+  if (/^data:image\/[a-z0-9.+-]+(?:;[^,]*)?,/i.test(url)) return true
+
+  const parsed = parseUrl(url)
+  return Boolean(parsed && (parsed.protocol === 'http:' || parsed.protocol === 'https:'))
+}
 
 export const validatePluginUrl = (value: string): string | null => {
-  if (DANGEROUS_PROTOCOLS.test(value)) return '不支持该类型链接'
+  const url = value.trim()
+  if (!url) return '链接不能为空'
 
-  if (SCRIPTING_PROTOCOL.test(value)) {
-    return value.startsWith(SCRIPTING_IMPORT) ? null : '仅支持 scripting://import_scripts 链接'
+  if (isImportScheme(url)) {
+    return parseImportUrls(url) ? null : 'Scripting 安装链接参数无效'
   }
 
-  if (!HTTP_PROTOCOL.test(value)) return '仅支持 http(s) 或 scripting:// 链接'
+  const parsed = parseUrl(url)
+  if (!parsed) return '链接格式无效'
 
-  const hostname = extractHostname(value)
-  if (!hostname) return '链接格式无效'
+  if (parsed.protocol === 'scripting:') {
+    return '仅支持 scripting://import_scripts 链接'
+  }
 
-  const pathname = extractPathname(value)
-  if (!IMPORTABLE_EXT_RE.test(pathname) && !isAllowedHost(hostname)) {
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return '仅支持 http(s) 或 scripting:// 链接'
+  }
+
+  if (!IMPORTABLE_EXT_RE.test(parsed.pathname) && !isAllowedHost(parsed.hostname)) {
     return '链接需为 .scripting、.js、.zip 文件或 GitHub/Scripting.fun 链接'
   }
 

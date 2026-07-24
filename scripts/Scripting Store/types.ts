@@ -10,20 +10,12 @@ export interface Plugin {
   installCount?: number
 }
 
-export interface ApiResponse<T> {
-  success: boolean
-  data: T
-  message?: string
-}
-
 export interface SiteConfig {
   bannerTitle: string
   bannerSubtitle: string
 }
 
 export type SortType = 'time' | 'popular'
-
-export type LoadingState = 'idle' | 'loading' | 'success' | 'error'
 
 export interface SubmitPluginData {
   name: string

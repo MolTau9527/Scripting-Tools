@@ -1,41 +1,34 @@
-import { Button, Image, useEffect, useState } from 'scripting'
-import { useColors } from '../../contexts/ThemeContext'
-import { isFollowingPlugin, subscribeFavoriteChange, toggleFollowPlugin } from '../../utils/userSettings'
+import { Button, useEffect, useState } from 'scripting'
+import { isFollowingPlugin, subscribePluginFavoriteChange, toggleFollowPlugin } from '../../utils/userSettings'
 
-const ICON_SIZE = 20
 const ICON_FILLED = 'star.fill'
 const ICON_EMPTY = 'star'
 
-export interface FavoriteButtonProps {
+interface FavoriteButtonProps {
   pluginId: string | number
-  onToggle?: () => void
 }
 
-export const FavoriteButton = ({ pluginId, onToggle }: FavoriteButtonProps) => {
-  const colors = useColors()
+export const FavoriteButton = ({ pluginId }: FavoriteButtonProps) => {
   const id = String(pluginId)
+  const [isFollowed, setIsFollowed] = useState(() => isFollowingPlugin(id))
 
-  // 订阅全局收藏变更，任何页面触发后本按钮都会重渲染
-  const [, setVersion] = useState(0)
   useEffect(() => {
-    const unsubscribe = subscribeFavoriteChange(() => setVersion(n => n + 1))
+    setIsFollowed(isFollowingPlugin(id))
+    const unsubscribe = subscribePluginFavoriteChange(id, setIsFollowed)
     return unsubscribe
-  }, [])
-
-  const isFollowed = isFollowingPlugin(id)
+  }, [id])
 
   return (
     <Button
+      title={isFollowed ? '取消关注' : '关注'}
+      systemImage={isFollowed ? ICON_FILLED : ICON_EMPTY}
       action={() => {
         toggleFollowPlugin(id)
-        onToggle?.()
       }}
-    >
-      <Image
-        systemName={isFollowed ? ICON_FILLED : ICON_EMPTY}
-        foregroundStyle={isFollowed ? colors.systemYellow : colors.tertiaryLabel}
-        frame={{ width: ICON_SIZE, height: ICON_SIZE }}
-      />
-    </Button>
+      buttonStyle="plain"
+      labelStyle="iconOnly"
+      frame={{ width: 44, height: 44 }}
+      accessibilityValue={isFollowed ? '已关注' : '未关注'}
+    />
   )
 }

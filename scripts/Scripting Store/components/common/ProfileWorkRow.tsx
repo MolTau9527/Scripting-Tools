@@ -1,7 +1,7 @@
 import { HStack } from 'scripting'
-import { useColors } from '../../contexts/ThemeContext'
-import { cornerRadius, fontSize, spacing } from '../../utils/styles'
+import { fontSize, spacing } from '../../utils/styles'
 import type { Plugin } from '../../types'
+import type { SemanticColors } from '../../contexts/ThemeContext'
 import { PressableRow } from './PressableRow'
 import { PluginSummary } from './PluginSummary'
 
@@ -9,8 +9,9 @@ import { PluginSummary } from './PluginSummary'
 // Types
 // ============================================================
 
-export interface ProfileWorkRowProps {
+interface ProfileWorkRowProps {
   plugin: Plugin
+  colors: SemanticColors
   subtitle: string
   onPress: () => void
   trailing?: JSX.Element
@@ -22,23 +23,21 @@ export interface ProfileWorkRowProps {
 
 export const ProfileWorkRow = ({
   plugin,
+  colors,
   subtitle,
   onPress,
   trailing,
 }: ProfileWorkRowProps) => {
-  const colors = useColors()
-
   return (
     <HStack
-      padding={spacing.md}
-      background={colors.tertiaryFill}
-      clipShape={{ type: 'rect', cornerRadius: cornerRadius.md }}
+      padding={{ top: spacing.xs, bottom: spacing.xs }}
       spacing={spacing.md}
       alignment="center"
     >
       <PressableRow onPress={onPress}>
         <PluginSummary
           plugin={plugin}
+          colors={colors}
           title={plugin.name}
           subtitle={subtitle}
           titleFont={fontSize.subheadline}

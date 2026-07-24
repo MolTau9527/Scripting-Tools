@@ -1,6 +1,6 @@
 import { HStack } from 'scripting'
 
-export interface PressableRowProps {
+interface PressableRowProps {
   onPress: () => void
   children: JSX.Element
 }
@@ -15,6 +15,9 @@ export const PressableRow = ({ onPress, children }: PressableRowProps) => {
       frame={{ maxWidth: 'infinity' }}
       contentShape={{ type: 'rect', cornerRadii: { topLeading: 0, topTrailing: 0, bottomLeading: 0, bottomTrailing: 0 } }}
       onTapGesture={onPress}
+      accessibilityElement="combine"
+      accessibilityAddTraits="isButton"
+      accessibilityHint="查看插件详情"
     >
       {children}
     </HStack>
